@@ -7,7 +7,7 @@ from optimizer import network
 from optimizer.store import Store
 from optimizer.wlan import frequency_channel, BSS, Association
 
-GUID = 'd8c53235-56a9-462a-89b2-d752a550068a'
+GUID = '11111111-2222-4333-8444-555555555555'
 
 
 @pytest.fixture
