@@ -27,6 +27,16 @@ unavailable-state rules only.
 Defaults resolve `recommend` via optional `optimizer.ai` import (same as Local AI advice).
 Other providers default to unavailable envelopes unless tests inject fixtures.
 
+## Worker scheduling
+
+Section refreshes call `MainWindow.launch(..., start=False)`, connect `result`/`done`
+handlers, then `pool.start(job)`. Connecting after `pool.start` can miss instantaneous
+provider results under QueuedConnection (observed as a Python 3.14 CI flake where the
+compare table stayed Unavailable while the badge remained "Loading").
+
+Accepted results record `applied_generation` and `last_payload` on the same apply step
+so the fixture banner always reflects the payloads currently shown in the tables.
+
 ## Manual checks
 
 1. Open **AI Optimizer** in the sidebar; PC Overview and Wi-Fi & Network still work.

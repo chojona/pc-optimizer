@@ -17,8 +17,9 @@ Closes #16
 - `python -m pytest tests -q` → **130 passed**
 
 ## Decisions / limitations
-- Does not edit `optimizer/ai/` (owned by #12). Comment on #12 lists optional additive inventory/catalog/benchmark/agent fields.
-- Synthetic fixtures use `fixture_kind=synthetic_development` and a visible banner.
+- Does not edit `optimizer/ai/` (owned by #12 / PR #15). Comment on #12 lists optional additive inventory/catalog/benchmark/agent fields.
+- Synthetic fixtures use `fixture_kind=synthetic_development` and a visible banner tied to applied payloads.
+- **CI flake fix:** `launch(..., start=False)` + connect handlers + `pool.start` so instantaneous providers cannot emit before slots exist (Python 3.14 failure on `test_synthetic_fixtures_are_labeled`).
 - start-task used `-Offline` after manual PR overlap checks because `gh api .../pulls/*/files` mixes a non-JSON hint into stderr and breaks Workflow JSON parsing.
 - Do not merge automatically.
 

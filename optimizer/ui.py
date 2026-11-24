@@ -360,7 +360,14 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(w)
         return layout
 
-    def launch(self,fn,callback=None,progress=True,channel=None):
+    def launch(self,fn,callback=None,progress=True,channel=None,start=True):
+        """Schedule work on the shared pool.
+
+        When start=False, the caller must connect any extra result/done handlers
+        and then call pool.start(job). Connecting after pool.start can miss
+        instantaneous worker emissions (QueuedConnection has nothing to deliver
+        to if no slot was connected yet).
+        """
         job=Job(fn)
         self.jobs.add(job)
         if progress:
@@ -389,7 +396,8 @@ class MainWindow(QMainWindow):
                 job.signals.result.connect(guarded)
         job.signals.error.connect(self.error)
         job.signals.done.connect(lambda:self.job_done(job))
-        self.pool.start(job)
+        if start:
+            self.pool.start(job)
         return job
 
     def job_done(self,job):

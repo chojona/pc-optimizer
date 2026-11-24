@@ -274,6 +274,9 @@ class AiOptimizerCenter(QWidget):
             'agents': 'ai-opt-agents',
             'recommend': 'ai-opt-recommend',
         }
+        # channel_key -> last accepted generation / payload (same apply step).
+        self._applied_generation = {}
+        self._last_payload = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -477,23 +480,29 @@ class AiOptimizerCenter(QWidget):
             for c, key in enumerate(columns):
                 table.setItem(r, c, QTableWidgetItem(_cell(row.get(key) if isinstance(row, dict) else row[c])))
 
-    def _update_fixture_banner(self, *payloads):
-        if any(_is_fixture(p) for p in payloads if p):
+    def applied_generation(self, channel_key):
+        return self._applied_generation.get(channel_key)
+
+    def last_payload(self, channel_key):
+        return self._last_payload.get(channel_key)
+
+    def _fixture_payload(self, channel_key, payload):
+        if channel_key == 'overview' and isinstance(payload, dict) and 'inventory' in payload:
+            return payload.get('inventory')
+        return payload
+
+    def _refresh_fixture_banner(self):
+        """Banner reflects currently applied payloads only (same results as tables)."""
+        if any(_is_fixture(self._fixture_payload(key, payload)) for key, payload in self._last_payload.items()):
             self.banner.setText(FIXTURE_BANNER)
             self.banner.show()
-        elif all(
-            (p is None) or (not _is_fixture(p) and (p.get('providers') is not None or p.get('models') is not None
-             or p.get('comparisons') is not None or p.get('agents') is not None or p.get('status') is not None))
-            for p in payloads
-        ):
-            # Keep banner if any prior fixture still displayed; simple approach: hide when none of current are fixtures
-            pass
+        else:
+            self.banner.hide()
+            self.banner.setText('')
 
     def _show_fixture_state(self, badge, payload, empty_status='unavailable'):
         if _is_fixture(payload):
             badge.set_status('warning', f'Synthetic development fixture · {payload.get("detail") or "fixture"}')
-            self.banner.setText(FIXTURE_BANNER)
-            self.banner.show()
             return
         detail = payload.get('detail') or empty_status
         status = 'ok' if payload.get('providers') or payload.get('models') or payload.get('comparisons') or payload.get('agents') else empty_status
@@ -550,6 +559,7 @@ class AiOptimizerCenter(QWidget):
             'runtimes': runtimes,
             'workloads': workloads,
         })
+        self._refresh_fixture_banner()
 
     def _show_catalog(self, payload):
         payload = payload or unavailable_catalog()
@@ -576,6 +586,7 @@ class AiOptimizerCenter(QWidget):
             'fixture_kind': payload.get('fixture_kind'),
             'models': models,
         })
+        self._refresh_fixture_banner()
 
     def _show_benchmarks(self, payload):
         payload = payload or unavailable_benchmarks()
@@ -601,6 +612,7 @@ class AiOptimizerCenter(QWidget):
             'fixture_kind': payload.get('fixture_kind'),
             'comparisons': rows,
         })
+        self._refresh_fixture_banner()
 
     def _show_agents(self, payload):
         payload = payload or unavailable_agents()
@@ -639,6 +651,7 @@ class AiOptimizerCenter(QWidget):
             'limitations': payload.get('limitations') or [],
             'fixture_kind': payload.get('fixture_kind'),
         })
+        self._refresh_fixture_banner()
 
     def _show_recommend(self, result):
         result = result or unavailable_result()
@@ -648,8 +661,6 @@ class AiOptimizerCenter(QWidget):
         detail = result.get('detail') or 'No recommendation detail.'
         if _is_fixture(result):
             self.recommend_badge.set_status('warning', FIXTURE_BANNER)
-            self.banner.setText(FIXTURE_BANNER)
-            self.banner.show()
         else:
             self.recommend_badge.set_status(status, f'Recommendation status: {status}')
         self.recommend_summary.setText(
@@ -687,17 +698,20 @@ class AiOptimizerCenter(QWidget):
         if not cards:
             payload['note'] = 'No advisory suggestions. PC and Network dashboards remain usable.'
         self.recommend_view.set_data(payload)
+        self._refresh_fixture_banner()
 
     def _run(self, channel_key, work, on_result, busy_widgets=()):
         if self.closed or self.host.closing:
-            return
+            return None
         channel = self._channels[channel_key]
         generation = self.host.requests.next(channel)
         self.cancel_button.setEnabled(True)
         for widget in busy_widgets:
             widget.setEnabled(False)
 
-        job = self.host.launch(work, None, True, channel=None)
+        # Connect result/done before pool.start so instantaneous providers cannot
+        # emit into a slotless QueuedConnection (the Python 3.14 CI flake).
+        job = self.host.launch(work, None, True, channel=None, start=False)
 
         def finish(expected=generation):
             if self.host.requests.accept(channel, expected):
@@ -709,6 +723,8 @@ class AiOptimizerCenter(QWidget):
         def deliver(result, expected=generation):
             if self.closed or self.host.closing or not self.host.requests.accept(channel, expected):
                 return
+            self._last_payload[channel_key] = result
+            self._applied_generation[channel_key] = expected
             on_result(result)
 
         job.signals.result.connect(deliver)
@@ -721,6 +737,8 @@ class AiOptimizerCenter(QWidget):
             'suggestions': [], 'evidence': {}, 'model': None,
         }, expected))
         job.signals.done.connect(finish)
+        self.host.pool.start(job)
+        return generation
 
     def refresh_overview(self):
         provider = self.inventory_provider
@@ -747,7 +765,7 @@ class AiOptimizerCenter(QWidget):
             self._show_inventory(payload.get('inventory'))
 
         self.overview_badge.set_status('loading', 'Refreshing overview off the UI thread…')
-        self._run('overview', work, on_result, (self.refresh_all_button,))
+        return self._run('overview', work, on_result, (self.refresh_all_button,))
 
     def refresh_models(self):
         provider = self.catalog_provider
@@ -763,7 +781,7 @@ class AiOptimizerCenter(QWidget):
                 return result
 
         self.models_badge.set_status('loading', 'Loading model catalog…')
-        self._run('models', work, self._show_catalog, (self.refresh_all_button,))
+        return self._run('models', work, self._show_catalog, (self.refresh_all_button,))
 
     def refresh_compare(self):
         provider = self.benchmark_provider
@@ -779,7 +797,7 @@ class AiOptimizerCenter(QWidget):
                 return result
 
         self.compare_badge.set_status('loading', 'Loading comparisons…')
-        self._run('compare', work, self._show_benchmarks, (self.refresh_all_button,))
+        return self._run('compare', work, self._show_benchmarks, (self.refresh_all_button,))
 
     def refresh_agents(self):
         provider = self.agent_provider
@@ -795,11 +813,11 @@ class AiOptimizerCenter(QWidget):
                 return result
 
         self.agents_badge.set_status('loading', 'Loading coding-agent status…')
-        self._run('agents', work, self._show_agents, (self.refresh_all_button,))
+        return self._run('agents', work, self._show_agents, (self.refresh_all_button,))
 
     def refresh_recommend(self):
         if self.closed or self.host.closing:
-            return
+            return None
         if self.cancel_token:
             self.cancel_token.cancel()
         recommend = resolve_recommend(self.recommend_provider if self.recommend_provider is not None else getattr(self.host, 'ai_provider', None))
@@ -834,11 +852,13 @@ class AiOptimizerCenter(QWidget):
                 result['limitations'] = list(result['limitations']) + [traceback.format_exc()[-500:]]
                 return result
 
-        job = self.host.launch(work, None, True, channel=None)
+        job = self.host.launch(work, None, True, channel=None, start=False)
 
         def on_result(result, expected=generation):
             if self.closed or self.host.closing or not self.host.requests.accept(channel, expected):
                 return
+            self._last_payload['recommend'] = result
+            self._applied_generation['recommend'] = expected
             self._show_recommend(result)
 
         def on_done(expected=generation):
@@ -856,6 +876,8 @@ class AiOptimizerCenter(QWidget):
             'limitations': SYNTHETIC_AI_RESULTS['error']['limitations'] + [text[-500:]],
         }, expected))
         job.signals.done.connect(on_done)
+        self.host.pool.start(job)
+        return generation
 
     def refresh_all(self):
         # Kick sections in a fixed order. Each uses its own RequestGate channel so
