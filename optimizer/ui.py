@@ -331,6 +331,14 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.ai_panel)
         self.nav.addItem('Local AI advice')
         self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to Local AI advice')
+        from .ai_optimizer_ui import AiOptimizerCenter
+        self.ai_optimizer=AiOptimizerCenter(self, recommend_provider=ai_provider)
+        self.ai_optimizer_scroll=QScrollArea()
+        self.ai_optimizer_scroll.setWidgetResizable(True)
+        self.ai_optimizer_scroll.setWidget(self.ai_optimizer)
+        self.stack.addWidget(self.ai_optimizer_scroll)
+        self.nav.addItem('AI Optimizer')
+        self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to AI Optimizer')
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
         for widget in self.findChildren(QTableWidget):
@@ -352,7 +360,14 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(w)
         return layout
 
-    def launch(self,fn,callback=None,progress=True,channel=None):
+    def launch(self,fn,callback=None,progress=True,channel=None,start=True):
+        """Schedule work on the shared pool.
+
+        When start=False, the caller must connect any extra result/done handlers
+        and then call pool.start(job). Connecting after pool.start can miss
+        instantaneous worker emissions (QueuedConnection has nothing to deliver
+        to if no slot was connected yet).
+        """
         job=Job(fn)
         self.jobs.add(job)
         if progress:
@@ -381,7 +396,8 @@ class MainWindow(QMainWindow):
                 job.signals.result.connect(guarded)
         job.signals.error.connect(self.error)
         job.signals.done.connect(lambda:self.job_done(job))
-        self.pool.start(job)
+        if start:
+            self.pool.start(job)
         return job
 
     def job_done(self,job):
@@ -937,6 +953,8 @@ class MainWindow(QMainWindow):
         self.network_center.stop()
         if hasattr(self,'ai_panel'):
             self.ai_panel.stop()
+        if hasattr(self,'ai_optimizer'):
+            self.ai_optimizer.stop()
         self.closing=True
         self.requests.invalidate()
         # Keep signal receivers alive until every bounded read-only worker completes.
