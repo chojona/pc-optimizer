@@ -1,0 +1,54 @@
+{
+  "_note": "Synthetic. Invented values only; no real host was inventoried for this fixture.",
+  "inventory": {
+    "cpu": [{"Name": "Synthetic CPU", "NumberOfCores": 8, "NumberOfLogicalProcessors": 16, "MaxClockSpeed": 3800}],
+    "memory": [
+      {"Capacity": 17179869184, "Speed": 3600, "ConfiguredClockSpeed": 3200},
+      {"Capacity": 17179869184, "Speed": 3600, "ConfiguredClockSpeed": 3200}
+    ],
+    "os": [{"Caption": "Synthetic Windows", "BuildNumber": "19045", "OSArchitecture": "64-bit"}],
+    "disks": [
+      {"FriendlyName": "Synthetic SSD", "MediaType": "SSD", "HealthStatus": "Healthy", "DeviceId": "0"},
+      {"FriendlyName": "Synthetic HDD", "MediaType": "HDD", "HealthStatus": "Warning", "DeviceId": "1"}
+    ],
+    "health": [{"DeviceId": "1", "Wear": 4, "ReadErrorsTotal": 12, "WriteErrorsTotal": 0, "PowerOnHours": 9000}],
+    "pagefile_policy": [{"AutomaticManagedPagefile": false}],
+    "pagefile_usage": [{"Name": "C:\\pagefile.sys", "AllocatedBaseSize": 4096, "CurrentUsage": 900, "PeakUsage": 2100}],
+    "power": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)"
+  },
+  "network": {
+    "captured_at": "2026-01-01T00:00:00+00:00",
+    "route": {"InterfaceIndex": 7, "NextHop": "192.168.10.1"},
+    "adapters": [
+      {
+        "index": 7, "name": "Wi-Fi", "kind": "Wi-Fi",
+        "guid": "0f6ea19b-1111-2222-3333-444455556666",
+        "pnp_id": "PCI\\VEN_SYNTH&DEV_0001",
+        "power": {"SelectiveSuspend": "Enabled", "DeviceSleepOnDisconnect": "Disabled"},
+        "wifi": {
+          "ssid": "SyntheticNetwork", "bssid": "aa:bb:cc:dd:ee:ff",
+          "signal_percent": 42, "rssi_dbm": -74, "band": "5 GHz", "channel": 44,
+          "rx_mbps": 160.0, "tx_mbps": 180.0,
+          "nearby": [
+            {"bssid": "11:22:33:44:55:66", "band": "5 GHz", "channel": 44, "rssi_dbm": -70},
+            {"bssid": "22:33:44:55:66:77", "band": "5 GHz", "channel": 44, "rssi_dbm": -80},
+            {"bssid": "33:44:55:66:77:88", "band": "2.4 GHz", "channel": 6, "rssi_dbm": -60}
+          ]
+        }
+      },
+      {"index": 12, "name": "Ethernet", "kind": "Ethernet", "guid": "1a2b3c4d-5555-6666-7777-888899990000"}
+    ]
+  },
+  "benchmark": {
+    "stable_path": true,
+    "idle_background_mbps": 0.12,
+    "results": {
+      "download_mbps": {"value": 180.4},
+      "upload_mbps": {"value": 11.2},
+      "dns_ms": {"value": 24.0},
+      "dns_failure_percent": {"value": 20.0},
+      "download_loaded_increase_ms": {"value": 48.5},
+      "upload_loaded_increase_ms": {"value": 3.0}
+    }
+  }
+}

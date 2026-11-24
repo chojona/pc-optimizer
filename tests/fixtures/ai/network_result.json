@@ -1,0 +1,21 @@
+{
+  "_note": "Synthetic read-only Network Intelligence result envelope; values are invented.",
+  "captured_at": "2026-01-01T00:05:00+00:00",
+  "diagnostic": {
+    "fault": "shared_path_suspected",
+    "confidence": "moderate",
+    "aligned_rounds": 40,
+    "shared_spikes": 5,
+    "external_only_spikes": 0,
+    "gateway_only_spikes": 1,
+    "statistics": {
+      "gateway": {"latency_ms": 12.34, "jitter_ms": 4.12, "p95_ms": 30.0, "nonresponse_percent": 2.5, "sent": 120},
+      "1.1.1.1": {"latency_ms": 22.0, "jitter_ms": 3.0, "nonresponse_percent": 0.0, "sent": 120},
+      "8.8.8.8": {"latency_ms": 24.0, "jitter_ms": 3.4, "nonresponse_percent": 1.0, "sent": 120}
+    },
+    "signal": {"pairs": 40, "pearson_r": -0.42},
+    "recommendation": "Synthetic deterministic recommendation.",
+    "limitations": "Synthetic limitations string.",
+    "future_key_the_network_owner_may_add": {"anything": true}
+  }
+}
