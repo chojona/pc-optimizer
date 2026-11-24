@@ -7,27 +7,89 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, Q
 
 from . import network
 from .readable import explain_result, readable_label
-from .readable_ui import ResultView
+from .readable_ui import ResultView, StatusBadge
 from .wlan import scan_wifi
 
 
+# Presentation fixtures aligned with docs/network-intelligence/contract.md (consumer copy).
+SYNTHETIC_INTELLIGENCE = {
+    'empty': {
+        'schema_version': 1,
+        'summary': {'state': 'insufficient', 'text': 'No diagnostic rounds are available yet.'},
+        'findings': [],
+        'recommendations': [],
+        'limitations': [
+            'ICMP nonresponse is not application packet loss.',
+            'Confidence labels are heuristic, not measured probability.',
+        ],
+        'evidence': {'diagnostic': None, 'input_rounds': 0, 'analyzed_rounds': 0, 'stale_rounds': 0},
+    },
+    'ok': {
+        'schema_version': 1,
+        'summary': {'state': 'ok', 'text': 'External path shows correlated ICMP spikes; causality is not proven.'},
+        'findings': [{
+            'id': 'network.external_path',
+            'severity': 'warning',
+            'evidence_refs': ['/evidence/diagnostic/shared_spikes'],
+            'confidence': 'low',
+            'explanation': 'Aligned external probes showed repeated spikes in the retained window.',
+        }],
+        'recommendations': [{
+            'id': 'network.compare_external_path',
+            'rationale': 'Compare the same workload on a wired path when safe to do so.',
+            'evidence_refs': ['/evidence/diagnostic/shared_spikes'],
+            'risk': 'low',
+            'requires_approval': True,
+        }],
+        'limitations': [
+            'ICMP nonresponse is not application packet loss.',
+            'Confidence is heuristic and never proof of cause.',
+        ],
+        'evidence': {'diagnostic': {'shared_spikes': 3}, 'input_rounds': 24, 'analyzed_rounds': 20, 'stale_rounds': 4},
+    },
+    'error': {
+        'schema_version': 1,
+        'summary': {'state': 'insufficient', 'text': 'Intelligence analysis could not run on this snapshot.'},
+        'findings': [],
+        'recommendations': [],
+        'limitations': ['Analysis failed; existing live metrics above remain authoritative.'],
+        'evidence': {'diagnostic': None, 'input_rounds': 0, 'analyzed_rounds': 0, 'stale_rounds': 0},
+    },
+}
+
+
+def resolve_analyze(provider=None):
+    if provider is not None:
+        return provider
+    try:
+        from optimizer.network_intelligence import analyze  # type: ignore
+        return analyze
+    except ImportError:
+        return None
+
+
 class NetworkCenter(QWidget):
-    def __init__(self, host):
+    def __init__(self, host, analyze_provider=None):
         super().__init__()
         # Late import keeps the main window's existing helper API intact.
         from .ui import label, button, table, Chart
         self.label, self.button, self.table = label, button, table
         self.host = host
+        self.analyze_provider = analyze_provider
         self.snapshot = {}
         self.observation = {}
+        self.intelligence = None
+        self.intelligence_state = 'empty'
         self.latest_benchmark = None
+        self._sample_generation = 0
+        self._intel_generation = 0
         try:
             config = network.DiagnosticConfig(**(host.store.get('network:diagnostic_config') or {}))
         except (ValueError, TypeError):
             config = network.DiagnosticConfig()
         self.monitor = network.NetworkMonitor(host.store, config)
         self.actions = network.NetworkActions(host.store)
-        self.scan_busy = self.sample_busy = self.driver_busy = self.survey_busy = False
+        self.scan_busy = self.sample_busy = self.driver_busy = self.survey_busy = self.intel_busy = False
         self.closed = False
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -37,6 +99,7 @@ class NetworkCenter(QWidget):
         row = QHBoxLayout()
         self.adapter = QComboBox()
         self.adapter.setMinimumWidth(280)
+        self.adapter.setAccessibleName('Inspect network adapter')
         self.adapter.currentIndexChanged.connect(self.show_adapter)
         row.addWidget(label('Inspect adapter:'))
         row.addWidget(self.adapter, 1)
@@ -54,6 +117,7 @@ class NetworkCenter(QWidget):
             box.addWidget(label(key, 'muted'))
             value, detail = label('Waiting…', 'metricCompact' if key == 'Throughput' else 'metric'), label('No samples yet', 'muted')
             value.setFixedHeight(38)
+            value.setAccessibleName(f'{key} metric')
             detail.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             box.addWidget(value); box.addWidget(detail, 1)
             self.metrics[key] = value, detail
@@ -74,6 +138,7 @@ class NetworkCenter(QWidget):
         self.tabs.setUsesScrollButtons(True)
         self.tabs.setElideMode(Qt.TextElideMode.ElideNone)
         self.tabs.tabBar().setExpanding(False)
+        self.tabs.setAccessibleName('Network center tabs')
         # Let the outer page scroll rather than squeezing the tab contents.
         self.tabs.setMinimumHeight(380)
         self.tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
@@ -92,6 +157,7 @@ class NetworkCenter(QWidget):
         self.scan_timer.timeout.connect(lambda: self.refresh(save=False))
         self.scan_timer.start(30000)
         QTimer.singleShot(800, lambda: self.refresh(save=False) if not self.closed else None)
+        self.show_intelligence(SYNTHETIC_INTELLIGENCE['empty'], state='empty')
 
     def tab(self, title):
         # Each tab scrolls independently when its controls need more room.
@@ -137,6 +203,30 @@ class NetworkCenter(QWidget):
         self.card_layout.setSpacing(12)
         self.area.setWidget(self.card_widget); layout.addWidget(self.area)
         self.draw_recommendations()
+        # Intelligence presentation lives in this existing tab so the Network Center
+        # keeps six tabs (compatibility with network GUI regression coverage).
+        layout.addWidget(self.label(
+            'Network intelligence summarizes evidence with explicit confidence and limitations. '
+            'It never claims measured probability or proof of cause. Live ICMP metrics above remain independent.',
+            'section'))
+        intel_row = QHBoxLayout()
+        self.intel_button = self.button('Analyze current evidence', self.run_intelligence, True)
+        self.intel_cancel = self.button('Cancel analysis', self.cancel_intelligence)
+        self.intel_cancel.setEnabled(False)
+        intel_row.addWidget(self.intel_button)
+        intel_row.addWidget(self.intel_cancel)
+        intel_row.addStretch(1)
+        layout.addLayout(intel_row)
+        self.intel_badge = StatusBadge('empty', 'Intelligence: empty — waiting for analysis')
+        layout.addWidget(self.intel_badge)
+        self.intel_summary = self.label('No intelligence result yet.', 'muted')
+        layout.addWidget(self.intel_summary)
+        self.intel_findings = self.table(['Finding', 'Severity', 'Confidence', 'Explanation'])
+        self.intel_findings.setMinimumHeight(120)
+        layout.addWidget(self.intel_findings)
+        self.intel_details = ResultView()
+        self.intel_details.setMaximumHeight(180)
+        layout.addWidget(self.intel_details)
 
     def make_inspection(self):
         layout = self.tab('Adapter details')
@@ -332,12 +422,23 @@ class NetworkCenter(QWidget):
         if self.closed or self.sample_busy or not self.snapshot:
             return
         self.sample_busy = True
+        self._sample_generation += 1
+        generation = self._sample_generation
         snapshot = deepcopy(self.snapshot)
-        job = self.host.launch(lambda _: self.monitor.sample(snapshot), self.sample_ready, False)
-        job.signals.done.connect(lambda: setattr(self, 'sample_busy', False))
+
+        def on_result(result, expected=generation):
+            if self.closed or expected != self._sample_generation:
+                return
+            self.sample_ready(result)
+
+        job = self.host.launch(lambda _: self.monitor.sample(snapshot), on_result, False)
+        job.signals.done.connect(lambda expected=generation: (
+            setattr(self, 'sample_busy', False) if expected == self._sample_generation else None))
 
     def sample_ready(self, result):
         from .ui import fill, fmt
+        if self.closed:
+            return
         self.observation = result
         if result.get('path_changed'):
             for chart in (self.gateway_chart, self.external_chart, self.loss_chart):
@@ -375,6 +476,114 @@ class NetworkCenter(QWidget):
         self.show_adapter()
         self.show_wifi(wifi)
         self.draw_recommendations()
+
+    def run_intelligence(self, snapshot_envelope=None):
+        if self.closed or self.intel_busy or self.host.closing:
+            return
+        self.intel_busy = True
+        self._intel_generation += 1
+        generation = self._intel_generation
+        self.intel_button.setEnabled(False)
+        self.intel_cancel.setEnabled(True)
+        self.show_intelligence(None, state='loading')
+        analyze = resolve_analyze(self.analyze_provider)
+        envelope = snapshot_envelope
+
+        def work(_progress):
+            if analyze is None:
+                result = dict(SYNTHETIC_INTELLIGENCE['empty'])
+                result['summary'] = {
+                    'state': 'insufficient',
+                    'text': 'Network intelligence engine is unavailable on this build.',
+                }
+                result['limitations'] = list(result['limitations']) + [
+                    'optimizer.network_intelligence is not imported until its contract lands on the integration base.',
+                ]
+                return 'unavailable', result
+            payload = envelope
+            if payload is None:
+                # Prefer a provider-built envelope when callers inject tests; otherwise mark empty.
+                payload = {
+                    'schema_version': 1,
+                    'captured_at': (self.observation or {}).get('captured_at') or (self.snapshot or {}).get('captured_at') or '1970-01-01T00:00:00Z',
+                    'as_of': (self.observation or {}).get('captured_at') or '1970-01-01T00:00:00Z',
+                    'stable_path': not bool((self.observation or {}).get('path_changed')),
+                    'config': (self.observation or {}).get('config') or self.monitor.config.payload(),
+                    'rounds': [],
+                }
+            try:
+                return 'ok', analyze(payload)
+            except ValueError as exc:
+                result = dict(SYNTHETIC_INTELLIGENCE['error'])
+                result['summary'] = {'state': 'insufficient', 'text': str(exc)}
+                return 'error', result
+            except Exception as exc:
+                result = dict(SYNTHETIC_INTELLIGENCE['error'])
+                result['summary'] = {'state': 'insufficient', 'text': f'Analysis failed: {exc}'}
+                return 'error', result
+
+        def on_result(payload, expected=generation):
+            if self.closed or expected != self._intel_generation:
+                return
+            state, result = payload
+            self.show_intelligence(result, state=state)
+
+        def on_done(expected=generation):
+            if expected == self._intel_generation:
+                self.intel_busy = False
+                self.intel_button.setEnabled(True)
+                self.intel_cancel.setEnabled(False)
+
+        job = self.host.launch(work, on_result, True)
+        job.signals.done.connect(on_done)
+
+    def cancel_intelligence(self):
+        self._intel_generation += 1
+        self.intel_busy = False
+        self.intel_button.setEnabled(True)
+        self.intel_cancel.setEnabled(False)
+        self.show_intelligence(dict(SYNTHETIC_INTELLIGENCE['empty'], summary={
+            'state': 'insufficient',
+            'text': 'Intelligence analysis was canceled.',
+        }), state='canceled')
+
+    def show_intelligence(self, result, state=None):
+        from .ui import fill
+        if result is None and state == 'loading':
+            self.intelligence_state = 'loading'
+            self.intel_badge.set_status('loading', 'Intelligence: loading evidence analysis')
+            self.intel_summary.setText('Running network intelligence off the UI thread…')
+            return
+        self.intelligence = result
+        summary = (result or {}).get('summary') or {}
+        derived = state or summary.get('state') or 'unavailable'
+        if derived == 'ok':
+            badge = 'ok'
+            caption = 'Intelligence: OK — evidence summarized (not a causal guarantee)'
+        elif derived in ('insufficient', 'empty'):
+            badge = 'insufficient' if derived == 'insufficient' else 'empty'
+            caption = f'Intelligence: {badge} — {summary.get("text") or "not enough evidence"}'
+        elif derived in ('error', 'canceled', 'unavailable', 'partial', 'loading'):
+            badge = derived
+            caption = f'Intelligence: {derived} — {summary.get("text") or derived}'
+        else:
+            badge = 'unavailable'
+            caption = f'Intelligence: unavailable — {summary.get("text") or derived}'
+        self.intelligence_state = badge
+        self.intel_badge.set_status(badge, caption)
+        self.intel_summary.setText(summary.get('text') or 'No summary.')
+        findings = (result or {}).get('findings') or []
+        fill(self.intel_findings, [
+            [f.get('id'), f.get('severity'), f.get('confidence'), f.get('explanation')]
+            for f in findings
+        ])
+        self.intel_details.set_data({
+            'summary': summary,
+            'recommendations': (result or {}).get('recommendations') or [],
+            'limitations': (result or {}).get('limitations') or [],
+            'evidence': (result or {}).get('evidence') or {},
+            'note': 'Confidence labels are heuristic. ICMP nonresponse is not application packet loss.',
+        })
 
     def draw_recommendations(self):
         while self.card_layout.count():
@@ -542,4 +751,6 @@ class NetworkCenter(QWidget):
 
     def stop(self):
         self.closed = True
+        self._sample_generation += 1
+        self._intel_generation += 1
         self.timer.stop(); self.scan_timer.stop()
