@@ -75,6 +75,10 @@ New-Item -ItemType Directory -Path data -Force | Out-Null
 
 Tests cover persistence, rollback guards, protected components, bounded benchmark files, result comparison, capture validation, imported evidence and saving state before desktop transitions. Network tests add native structure/channel decoding, provider failures, explicit approval, durable rollback and failed-action recovery, route handovers, benchmark cancellation/partial results, response limits, comparison confounds, official driver matching and GUI/history isolation. System-changing commands and external bulk traffic are mocked in automated tests.
 
+## CI and releases
+
+GitHub Actions tests pull requests and `main` on Windows with Python 3.12–3.14, then builds a verified source bundle and SHA-256 checksum. Pushing a version tag such as `v1.0.1` publishes that bundle as a GitHub Release after the same checks pass. See [CI/CD and release instructions](docs/ci-cd.md).
+
 ## Layout
 
 - `optimizer/ui.py`: native desktop interface and background jobs.
