@@ -331,6 +331,14 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.ai_panel)
         self.nav.addItem('Local AI advice')
         self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to Local AI advice')
+        from .ai_optimizer_ui import AiOptimizerCenter
+        self.ai_optimizer=AiOptimizerCenter(self, recommend_provider=ai_provider)
+        self.ai_optimizer_scroll=QScrollArea()
+        self.ai_optimizer_scroll.setWidgetResizable(True)
+        self.ai_optimizer_scroll.setWidget(self.ai_optimizer)
+        self.stack.addWidget(self.ai_optimizer_scroll)
+        self.nav.addItem('AI Optimizer')
+        self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to AI Optimizer')
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
         for widget in self.findChildren(QTableWidget):
@@ -937,6 +945,8 @@ class MainWindow(QMainWindow):
         self.network_center.stop()
         if hasattr(self,'ai_panel'):
             self.ai_panel.stop()
+        if hasattr(self,'ai_optimizer'):
+            self.ai_optimizer.stop()
         self.closing=True
         self.requests.invalidate()
         # Keep signal receivers alive until every bounded read-only worker completes.

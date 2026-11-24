@@ -45,6 +45,8 @@ def _close(window, app):
         window.network_center.stop()
     if hasattr(window, 'ai_panel'):
         window.ai_panel.stop()
+    if hasattr(window, 'ai_optimizer'):
+        window.ai_optimizer.stop()
     _wait_jobs(window, app)
     window.store.set('window_size', [window.width(), window.height()])
     window.close()
@@ -67,16 +69,20 @@ class GuiModernizationTests(unittest.TestCase):
         _close(self.window, self.app)
 
     def test_builds_pages_and_keyboard_nav(self):
-        self.assertEqual(self.window.stack.count(), 10)
+        self.assertEqual(self.window.stack.count(), 11)
         self.assertEqual(self.window.minimumWidth(), 1280)
         self.assertEqual(self.window.minimumHeight(), 720)
         self.assertGreaterEqual(len(self.window.cards), 5)
         self.assertEqual(self.window.store.actions(), [])
         self.window.nav.setFocus(Qt.FocusReason.TabFocusReason)
-        for i in range(10):
+        for i in range(11):
             self.window.nav.setCurrentRow(i)
             self.assertEqual(self.window.stack.currentIndex(), i)
         self.assertTrue(self.window.nav.accessibleName())
+        names = [self.window.nav.item(i).text() for i in range(self.window.nav.count())]
+        self.assertIn('Wi-Fi & Network', names)
+        self.assertIn('Local AI advice', names)
+        self.assertIn('AI Optimizer', names)
         self.window.filter.setCurrentText('Recommended')
         self.assertGreaterEqual(len(self.window.cards), 5)
 
@@ -191,12 +197,15 @@ def test_gui_builds_all_pages_without_system_changes(tmp_path, monkeypatch):
     monkeypatch.setattr(QTimer, 'singleShot', lambda *args: None)
     window = MainWindow(tmp_path)
     _stop_timers(window)
-    assert window.stack.count() == 10
+    assert window.stack.count() == 11
     assert len(window.cards) == 18
     assert window.store.actions() == []
-    for i in range(10):
+    for i in range(11):
         window.nav.setCurrentRow(i)
         assert window.stack.currentIndex() == i
+    names = [window.nav.item(i).text() for i in range(window.nav.count())]
+    assert 'AI Optimizer' in names
+    assert 'Wi-Fi & Network' in names
     window.filter.setCurrentText('Recommended')
     assert len(window.cards) >= 5
     _close(window, app)
