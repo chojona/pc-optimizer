@@ -28,6 +28,7 @@ Use **Activity & Settings → Restart as administrator** for actions requiring W
 - Local benchmark history, before/after comparisons, and PresentMon CSV import.
 - Imported prior diagnostic findings, event-log inspection, paging/disk-latency observations and user-initiated desktop transition tests.
 - Installed driver inventory, Windows Update metadata checks and official manufacturer links.
+- Plain-English diagnostic views for hardware, driver checks, stability, action history and saved network results. **Show technical details** displays the original data. Common field names, units and errors are explained locally; values, warnings and verification limits are retained.
 - Wi-Fi & Network Center with automatic adapter detection, native WLAN telemetry, channel surveys, timestamped gateway/multiple-external latency, explicitly defined jitter, ICMP nonresponses and interface throughput charts.
 - Consent-gated download/upload, configured DNS and loaded-latency benchmarks, persistent configuration snapshots, guarded comparisons and individually reversible power-management experiments.
 
@@ -69,7 +70,7 @@ Settings, action history, rollback state and benchmark results are stored in `da
 
 ```powershell
 New-Item -ItemType Directory -Path data -Force | Out-Null
-.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp data/test-temp
+.\.venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp data/test-temp
 ```
 
 Tests cover persistence, rollback guards, protected components, bounded benchmark files, result comparison, capture validation, imported evidence and saving state before desktop transitions. Network tests add native structure/channel decoding, provider failures, explicit approval, durable rollback and failed-action recovery, route handovers, benchmark cancellation/partial results, response limits, comparison confounds, official driver matching and GUI/history isolation. System-changing commands and external bulk traffic are mocked in automated tests.
@@ -77,6 +78,7 @@ Tests cover persistence, rollback guards, protected components, bounded benchmar
 ## Layout
 
 - `optimizer/ui.py`: native desktop interface and background jobs.
+- `optimizer/readable.py` and `optimizer/readable_ui.py`: plain-language diagnostic formatting and the original-data toggle.
 - `optimizer/windows.py`: Windows commands, inventory and official sources.
 - `optimizer/telemetry.py`: live sampling and network probes.
 - `optimizer/network.py`: network discovery, monitoring, benchmarks, comparison and guarded actions.
