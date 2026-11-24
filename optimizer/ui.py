@@ -20,8 +20,9 @@ from .actions import (ActionEngine, startup_entries, startup_change, disabled_st
                       terminate_process, BALANCED, HIGH)
 from .benchmarks import BenchmarkEngine, TESTS, PARAMETERS, compare_runs, import_presentmon, fingerprint
 from .store import Store, timestamp
+from .ai_ui import AiAdvisorPanel, RequestGate
 from .readable import explain_error, explain_result, readable_label
-from .readable_ui import ResultView
+from .readable_ui import ResultView, StatusBadge
 from .telemetry import Telemetry, process_list, publisher
 from .windows import (OFFICIAL, inventory, driver_inventory, update_search,
                       stability as event_scan, firmware_url, is_admin, guid, run)
@@ -35,20 +36,23 @@ QFrame#card {background:#161f30; border:1px solid #28354a; border-radius:12px;}
 QFrame#card QLabel, QFrame#card QCheckBox {background:transparent;}
 QWidget#sidebar {background:#101827; border-right:1px solid #28354a;}
 QWidget#sidebar QLabel {background:transparent;}
-QLabel#brand {font-size:19px; font-weight:700; color:#f4f8ff;}
-QLabel#title {font-size:27px; font-weight:700; color:#f4f8ff;}
-QLabel#muted {color:#a9b9ce;}
+QLabel#brand {font-size:20px; font-weight:700; color:#f4f8ff; letter-spacing:0.4px;}
+QLabel#title {font-size:26px; font-weight:700; color:#f4f8ff;}
+QLabel#muted {color:#a9b9ce; font-size:13px;}
 QLabel#section {font-size:15px; font-weight:600; color:#f4f8ff;}
 QLabel#metric {font-size:28px; font-weight:600; color:#6ee7c7;}
-QLabel#metricCompact {font-size:24px; font-weight:600; color:#6ee7c7;}
+QLabel#metricCompact {font-size:22px; font-weight:600; color:#6ee7c7;}
+QLabel#statusCaption {font-size:13px; font-weight:600; color:#dbe5f4;}
+QLabel#statusSwatch {font-size:14px;}
 QListWidget {background:#101827; border:none; padding:0; font-size:14px; outline:none;}
-QListWidget::item {padding:13px 10px; border-radius:7px; margin:3px 0;}
+QListWidget::item {padding:12px 10px; border-radius:7px; margin:3px 0;}
 QListWidget::item:hover {background:#19283b;}
 QListWidget::item:selected {background:#203950; color:#80f0d2;}
+QListWidget::item:focus {border:1px solid #6ee7c7;}
 QPushButton {background:#22334a; border:1px solid #3a4c64; border-radius:6px; padding:9px 15px;}
 QPushButton:hover {background:#304761;}
 QPushButton:pressed {background:#19283b;}
-QPushButton:focus, QComboBox:focus, QLineEdit:focus, QTextEdit:focus {border:1px solid #6ee7c7;}
+QPushButton:focus, QComboBox:focus, QLineEdit:focus, QTextEdit:focus, QTableWidget:focus, QListWidget:focus, QCheckBox:focus, QSpinBox:focus, QTabBar::tab:focus {border:2px solid #6ee7c7;}
 QPushButton:disabled {color:#8998ac; background:#182233; border-color:#29364b;}
 QPushButton#primary {background:#237b6a; color:#fff; border-color:#329d87; font-weight:600;}
 QPushButton#primary:hover {background:#29927d;}
@@ -119,16 +123,27 @@ class Signals(QObject):
 class Job(QRunnable):
     def __init__(self, function):
         super().__init__()
+        self.setAutoDelete(False)
         self.signals=Signals()
         self.function=function
 
     def run(self):
         try:
-            self.signals.result.emit(self.function(self.signals.progress.emit))
+            value=self.function(self.signals.progress.emit)
+            try:
+                self.signals.result.emit(value)
+            except RuntimeError:
+                return
         except Exception:
-            self.signals.error.emit(traceback.format_exc())
+            try:
+                self.signals.error.emit(traceback.format_exc())
+            except RuntimeError:
+                return
         finally:
-            self.signals.done.emit()
+            try:
+                self.signals.done.emit()
+            except RuntimeError:
+                pass
 
 
 def label(text, kind=None):
@@ -226,11 +241,12 @@ class Chart(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, data_dir=None):
+    def __init__(self, data_dir=None, ai_provider=None, analyze_provider=None):
         super().__init__()
         self.setWindowTitle('PC Optimizer · Local workstation control')
-        self.resize(1440,940)
-        self.setMinimumSize(1080,740)
+        self.resize(1440,900)
+        # Acceptance target: usable at 1280×720 and common display scaling.
+        self.setMinimumSize(1280,720)
         self.setStyleSheet(STYLE)
         self.store=Store(Path(data_dir or ROOT/'data')/'optimizer.sqlite3')
         stability.import_evidence(self.store)
@@ -239,6 +255,7 @@ class MainWindow(QMainWindow):
         self.pool.setMaxThreadCount(6)
         self.jobs=set()
         self.closing=False
+        self.requests=RequestGate(self)
         self.hardware=self.store.get('hardware',{})
         self.telemetry=Telemetry()
         self.telemetry_busy=False
@@ -249,6 +266,8 @@ class MainWindow(QMainWindow):
         self.drivers=[]
         self.updates=[]
         self.cards=[]
+        self.ai_provider=ai_provider
+        self.analyze_provider=analyze_provider
         shell=QWidget()
         self.setCentralWidget(shell)
         outer=QHBoxLayout(shell)
@@ -262,7 +281,14 @@ class MainWindow(QMainWindow):
         side.addWidget(label('PC OPTIMIZER','brand'))
         side.addWidget(label('LOCAL WORKSTATION','muted'))
         self.nav=QListWidget()
-        self.nav.addItems(['Overview','Optimization Center','Driver Manager','Benchmark Center','Before & After','Startup & Processes','Stability Center','Activity & Settings'])
+        self.nav.setAccessibleName('Primary navigation')
+        self.nav.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        pages=['Overview','Optimization Center','Driver Manager','Benchmark Center','Before & After','Startup & Processes','Stability Center','Activity & Settings']
+        self.nav.addItems(pages)
+        for index,name in enumerate(pages):
+            item=self.nav.item(index)
+            item.setToolTip(name)
+            item.setData(Qt.ItemDataRole.AccessibleTextRole, f'Navigate to {name}')
         side.addWidget(self.nav)
         side.addWidget(label('Real telemetry.\nMeasured changes.\nYour files stay yours.','muted'))
         self.privilege=label('Administrator session' if is_admin() else 'Standard user session','muted')
@@ -270,9 +296,12 @@ class MainWindow(QMainWindow):
         outer.addWidget(left)
         right=QVBoxLayout()
         right.setContentsMargins(22,14,22,14)
+        right.setSpacing(10)
         self.stack=QStackedWidget()
+        self.stack.setAccessibleName('Main content pages')
         right.addWidget(self.stack,1)
         self.status=label('Starting live monitoring…','muted')
+        self.status.setAccessibleName('Application status')
         self.progress=QProgressBar()
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(6)
@@ -291,12 +320,17 @@ class MainWindow(QMainWindow):
         self.make_stability()
         self.make_activity()
         from .network_ui import NetworkCenter
-        self.network_center=NetworkCenter(self)
+        self.network_center=NetworkCenter(self, analyze_provider=analyze_provider)
         self.network_scroll=QScrollArea()
         self.network_scroll.setWidgetResizable(True)
         self.network_scroll.setWidget(self.network_center)
         self.stack.addWidget(self.network_scroll)
         self.nav.addItem('Wi-Fi & Network')
+        self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to Wi-Fi and Network')
+        self.ai_panel=AiAdvisorPanel(self, provider=ai_provider)
+        self.stack.addWidget(self.ai_panel)
+        self.nav.addItem('Local AI advice')
+        self.nav.item(self.nav.count()-1).setData(Qt.ItemDataRole.AccessibleTextRole,'Navigate to Local AI advice')
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
         for widget in self.findChildren(QTableWidget):
@@ -318,13 +352,33 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(w)
         return layout
 
-    def launch(self,fn,callback=None,progress=True):
+    def launch(self,fn,callback=None,progress=True,channel=None):
         job=Job(fn)
         self.jobs.add(job)
         if progress:
             self.progress.setRange(0,0)
             job.signals.progress.connect(self.status.setText)
-        if callback: job.signals.result.connect(callback)
+        if callback:
+            if channel:
+                generation=self.requests.next(channel)
+                def guarded(result, expected=generation, name=channel):
+                    if self.closing or not self.requests.accept(name, expected):
+                        return
+                    try:
+                        callback(result)
+                    except RuntimeError:
+                        # Widget tree may already be torn down during close.
+                        return
+                job.signals.result.connect(guarded)
+            else:
+                def guarded(result):
+                    if self.closing:
+                        return
+                    try:
+                        callback(result)
+                    except RuntimeError:
+                        return
+                job.signals.result.connect(guarded)
         job.signals.error.connect(self.error)
         job.signals.done.connect(lambda:self.job_done(job))
         self.pool.start(job)
@@ -339,14 +393,15 @@ class MainWindow(QMainWindow):
                 self.close()
 
     def error(self,text):
+        if self.closing:
+            return
         message=explain_error(text)
         self.status.setText(message.replace('\n\n',' '))
         self.store.action('application','failed',{'error':text})
         if hasattr(self,'activity'): self.refresh_activity()
-        if not self.closing:
-            dialog=QMessageBox(QMessageBox.Icon.Warning,'Operation could not complete',message,parent=self)
-            dialog.setDetailedText(text)
-            dialog.exec()
+        dialog=QMessageBox(QMessageBox.Icon.Warning,'Operation could not complete',message,parent=self)
+        dialog.setDetailedText(text)
+        dialog.exec()
 
     def confirm(self,title,text):
         return QMessageBox.question(self,title,text,QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes
@@ -357,6 +412,8 @@ class MainWindow(QMainWindow):
 
     def make_dashboard(self):
         l=self.page('Your workstation, in view','LIVE  •  refreshed asynchronously  •  sensor availability depends on hardware and installed providers')
+        self.live_badge=StatusBadge('loading','Live telemetry: starting')
+        l.addWidget(self.live_badge)
         grid=QGridLayout()
         self.metrics={}
         for i,(key,title) in enumerate([('cpu','CPU utilization'),('gpu','GPU utilization'),('ram','Memory utilization'),('network','Network latency')]):
@@ -367,6 +424,7 @@ class MainWindow(QMainWindow):
             box.addWidget(label(title,'muted'))
             value=label('Waiting…','metric'); detail=label('Reading current system…','muted')
             value.setFixedHeight(38)
+            value.setAccessibleName(title)
             detail.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             box.addWidget(value); box.addWidget(detail,1)
             self.metrics[key]=(value,detail)
@@ -390,11 +448,13 @@ class MainWindow(QMainWindow):
     def poll(self):
         if self.closing or self.telemetry_busy: return
         self.telemetry_busy=True
-        job=self.launch(lambda _:self.telemetry.sample(),self.show_telemetry,False)
+        job=self.launch(lambda _:self.telemetry.sample(),self.show_telemetry,False,channel='telemetry')
         job.signals.done.connect(lambda:setattr(self,'telemetry_busy',False))
 
     def show_telemetry(self,s):
+        if self.closing: return
         gpu=s.get('gpu',{})
+        self.live_badge.set_status('ok','Live telemetry: updating asynchronously')
         self.metrics['cpu'][0].setText(fmt(s['cpu'],'%'))
         self.metrics['cpu'][1].setText(f"{fmt(s['cpu_mhz'],' MHz',0)} · {fmt(s['cpu_temp'],' °C')}\nClock is OS-reported; boost needs a hardware sensor.")
         self.metrics['gpu'][0].setText(fmt(gpu.get('utilization'),'%'))
@@ -412,9 +472,10 @@ class MainWindow(QMainWindow):
     def scan_hardware(self):
         if self.closing: return
         self.status.setText('Reading CIM hardware, pagefile policy and storage health…')
-        self.launch(lambda _:inventory(),self.hardware_ready)
+        self.launch(lambda _:inventory(),self.hardware_ready,channel='hardware')
 
     def hardware_ready(self,data):
+        if self.closing: return
         self.hardware=data
         self.store.set('hardware',data)
         self.hardware_text.set_data(data)
@@ -874,7 +935,10 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self,'Operation running','Finish or cancel the active operation before closing.'); event.ignore();return
         self.timer.stop()
         self.network_center.stop()
+        if hasattr(self,'ai_panel'):
+            self.ai_panel.stop()
         self.closing=True
+        self.requests.invalidate()
         # Keep signal receivers alive until every bounded read-only worker completes.
         # Accepting close after an arbitrary 5 s wait could destroy a running job's signals.
         if self.jobs:
