@@ -8,7 +8,7 @@ Identify the repository root, current directory, branch, HEAD, remotes, default/
 
 ## Isolate and claim implementation tasks
 
-Every independent implementation task must use its own Git worktree and branch. Read-only investigation and review may inspect an existing checkout without editing it. Do not implement in the primary checkout or share a mutable checkout between agents. Start with `Engineering/scripts/start-task.ps1` when available.
+Every independent implementation task must use its own Git worktree and branch. Create or safely reuse that worktree before the first edit; this is a standing instruction, not a question to raise, and one task keeps one branch, one worktree, and one pull request. Read-only investigation and review may inspect an existing checkout without editing it. Do not implement in the primary checkout or share a mutable checkout between agents. Start with `Engineering/scripts/start-task.ps1` when available.
 
 Use a stable issue number and a unique session owner, for example `codex-20261124-api-01`, `cursor-20261124-ui-01`, or `claude-20261124-tests-01`. An agent product name alone is not an owner identity. Use the task-specific branch returned by the script, normally `codex/issue-<number>-<slug>`; record the owner, base, worktree, and claimed repository-relative file or directory paths in its registry and plan. The branch prefix is a convention and does not restrict which agent implements it.
 
@@ -22,19 +22,35 @@ GitHub Issues hold the problem, acceptance criteria, dependencies, and relevant 
 
 Update issue comments or Project status only when the user has authorized that external change. Report missing CLI authentication or permissions and continue permitted local work; never silently claim that GitHub was checked or updated. An explicit offline start needs supplied issue context and manual dependency/PR checks before publication. Prefer focused PRs linked with `Closes #<issue>` only when the PR fully resolves that issue. Use a descriptive PR title, concise behavior-focused description, acceptance evidence, validation, and material limitations. Never automatically approve, enable auto-merge, or merge a PR.
 
+## End every session with the mandatory protocol
+
+Every coding session that changes a repository must finish these seven steps before it stops, and report each result to the user. This is the repository owner's standing authorization to commit, push the task's own feature branch, and open or update that branch's pull request. It does not authorize pushing any other branch, force-pushing, rewriting history, merging, approving, enabling auto-merge, bypassing failing checks, or any host or global change; those still require separate explicit approval.
+
+1. Review the complete diff — staged, unstaged, and untracked — for correctness, changes unrelated to the task, and exposed secrets.
+2. Run the relevant tests and checks and report their actual results, including failures and checks that could not run. A skipped or failing check is never reported as a pass.
+3. Commit the reviewed, claimed changes with a descriptive message.
+4. Push the task's own feature branch.
+5. Create or update exactly one pull request for that branch. Completed work whose checks pass is ready for review. Incomplete work or failing checks publish a draft pull request whose body documents the blockers under a `## Blockers` heading and references the issue without claiming to close it. An existing pull request for the branch is updated, never duplicated.
+6. Update the associated GitHub issue and Project board status when authorized and supported. When either is unavailable, report the exact blocked operation instead of implying it succeeded.
+7. Hand off: completed work, remaining work, test results, blockers, the pull request URL, and the engineering concepts involved.
+
+A session that produced no repository changes performs step 7 only; never create an empty pull request. Unfinished work is preserved across sessions as commits on its own branch and a draft pull request, never discarded to make a session look complete. One task keeps one branch, one worktree, and one pull request, and no session modifies another agent's worktree.
+
+Run `pwsh -File Engineering/scripts/end-session.ps1 -Repository <task-worktree>` before reporting completion. It is read-only and reports each step's state: Git establishes the change, commit, and push facts, while review, test, publication, issue, and handoff steps are attestations recorded by `finish-task.ps1`. A `pending` step means the protocol was not recorded there, which is not proof that it was skipped and not permission to claim it was done. Where an agent cannot enforce this automatically, follow the protocol manually and tell the user which part was not machine-verified.
+
 ## Design and implementation quality
 
 Search for existing utilities and abstractions before adding code. Reuse established modules and conventions, keep responsibilities focused, and expose small explicit interfaces. Avoid premature frameworks, duplicated logic, unrelated refactors, and dependency additions without a concrete benefit. Document significant architectural decisions and compatibility constraints close to the implementation or in the project's established documentation.
 
 Validate input at trust boundaries, use least privilege, avoid shell interpolation of untrusted strings, and never commit secrets or private credentials. Review error paths, resource cleanup, cancellation, concurrency, retries, and partial failures. Keep system-specific assumptions visible. Operations affecting the host must remain reviewable and require explicit user approval before execution; tests should use mocks or isolated fixtures instead of changing the host.
 
-Choose tests that demonstrate acceptance criteria and relevant regressions, including failure cases. Run the project's applicable checks in the task worktree; record exact commands and outcomes. Explain unavailable checks and failures without calling them passes. Inspect the actual final diff, staged changes, and untracked files. Stage only intended, claimed changes. Keep commits focused and preserve history; never discard changes, force-push, or rewrite another owner's branch. Commit and push only within the user's authorized scope; publication is an explicit step.
+Choose tests that demonstrate acceptance criteria and relevant regressions, including failure cases. Run the project's applicable checks in the task worktree; record exact commands and outcomes. Explain unavailable checks and failures without calling them passes. Inspect the actual final diff, staged changes, and untracked files. Stage only intended, claimed changes. Keep commits focused and preserve history; never discard changes, force-push, or rewrite another owner's branch. Commit and push the task's own feature branch as required by the end-of-session protocol below; every other publication target remains an explicit per-request authorization.
 
 Consider algorithmic complexity, memory, I/O, and concurrency costs. Any claim of a measured performance improvement requires a reproducible baseline, comparable before/after runs, controlled conditions, sample sizes, raw results or durable references, and uncertainty/limitations. Distinguish hypotheses, asymptotic reasoning, and measurements. Never fabricate timings or percentage improvements. Update usage, API, operational, and architecture documentation when behavior requires it.
 
 ## Handoff and learning
 
-Provide a concise engineering handoff with the issue and PR, behavior changed, important files/functions, decisions and trade-offs, checks and their evidence, outstanding risks, and next steps. Explain at least the main engineering concept behind the change at a useful level for the user. When asked to use `learn`, also explain algorithms/data structures and complexity, supply three technical interview questions, and give a practical implementation-based exercise. Educational material must match the actual diff and identify uncertainty.
+Provide a concise engineering handoff — step 7 of the end-of-session protocol — with the issue and pull request URL, completed work, remaining work, behavior changed, important files/functions, decisions and trade-offs, checks and their exact evidence, blockers, outstanding risks, and next steps. Explain at least the main engineering concept behind the change at a useful level for the user. When asked to use `learn`, also explain algorithms/data structures and complexity, supply three technical interview questions, and give a practical implementation-based exercise. Educational material must match the actual diff and identify uncertainty.
 
 ## Approval and cleanup
 

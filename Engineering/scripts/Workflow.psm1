@@ -124,10 +124,38 @@ function Assert-ProjectParameters {
     if ($UpdateProject -and (-not $ProjectId -or -not $ProjectItemId -or -not $StatusFieldId -or -not $StatusOptionId)) { throw '-UpdateProject requires -ProjectId, -ProjectItemId, -StatusFieldId and -StatusOptionId. IDs are never guessed.' }
 }
 function Assert-IssueLink {
-    param([string]$Body, [int]$Issue, [string]$GitHubRepository)
+    param([string]$Body, [int]$Issue, [string]$GitHubRepository, [ValidateSet('resolves', 'references')][string]$Mode = 'resolves')
     $repo = [regex]::Escape($GitHubRepository)
-    $pattern = "(?im)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:$repo)?#$Issue\b"
-    if ($Body -notmatch $pattern) { throw "PR body must resolve this repository's issue using 'Closes #$Issue' or 'Closes $GitHubRepository#$Issue'." }
+    $closing = "(?im)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:$repo)?#$Issue\b"
+    if ($Mode -eq 'resolves') {
+        if ($Body -notmatch $closing) { throw "PR body must resolve this repository's issue using 'Closes #$Issue' or 'Closes $GitHubRepository#$Issue'." }
+        return
+    }
+    # An incomplete implementation links the issue without claiming to resolve it.
+    if ($Body -match $closing) { throw "An incomplete or failing session must not claim to close issue #$Issue. Reference it instead, for example 'Refs #$Issue'." }
+    if ($Body -notmatch "(?im)(?:$repo)?#$Issue\b") { throw "PR body must reference issue #$Issue, for example 'Refs #$Issue'." }
+}
+function Assert-IssueMention {
+    param([string]$Body, [int]$Issue, [string]$GitHubRepository)
+    # The lookbehind keeps 'other/project#1' from passing as this repository's issue reference.
+    $repo = [regex]::Escape($GitHubRepository)
+    if ($Body -notmatch "(?im)(?<![A-Za-z0-9_./-])(?:$repo)?#$Issue\b") { throw "The existing pull request body does not reference issue #$Issue in this repository. Coordinate manually instead of reusing another task's pull request." }
+}
+function Set-PullRequestContent {
+    param([string]$GitHubRepository, [int]$Number, [string]$Title, [string]$BodyPath)
+    Invoke-Tool gh @('pr', 'edit', "$Number", '--repo', $GitHubRepository, '--title', $Title, '--body-file', $BodyPath) | Out-Null
+}
+function Set-PullRequestDraft {
+    param([string]$GitHubRepository, [int]$Number, [bool]$Draft)
+    # Converting a ready PR back to draft is a deliberate signal that work is incomplete.
+    $arguments = @('pr', 'ready', "$Number", '--repo', $GitHubRepository)
+    if ($Draft) { $arguments += '--undo' }
+    Invoke-Tool gh $arguments | Out-Null
+}
+function Add-IssueComment {
+    param([string]$GitHubRepository, [int]$Issue, [string]$BodyPath)
+    try { Invoke-Tool gh @('issue', 'comment', "$Issue", '--repo', $GitHubRepository, '--body-file', $BodyPath) | Out-Null; return 'commented' }
+    catch { Write-Warning "The issue was not commented on. Check issue write permission. $($_.Exception.Message)"; return 'pending' }
 }
 function Assert-Task {
     param($Task, [string]$Owner, [string]$Repository)
@@ -136,5 +164,113 @@ function Assert-Task {
     if (-not (Test-SamePath $Repository $Task.path)) { throw "Use this task's worktree: $($Task.path)" }
     $branch = Invoke-Git $Repository @('branch', '--show-current')
     if ($branch -cne $Task.branch) { throw "Expected branch '$($Task.branch)', found '$branch'." }
+}
+function Get-Field {
+    param($Object, [string]$Name)
+    if ($null -eq $Object) { return $null }
+    if ($Object -is [System.Collections.IDictionary]) { if ($Object.Contains($Name)) { return $Object[$Name] }; return $null }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($property) { return $property.Value }
+    return $null
+}
+function Resolve-BaseCommit {
+    param([string]$Repository, [string]$Base)
+    foreach ($ref in @("refs/remotes/origin/$Base", "refs/heads/$Base")) {
+        try { return (Invoke-Git $Repository @('merge-base', 'HEAD', $ref)) } catch { continue }
+    }
+    throw "Cannot resolve a base commit for '$Base'. Supply -BaseCommit or fetch the base explicitly; nothing was changed."
+}
+function Get-PushedCommit {
+    param([string]$Repository, [string]$Branch)
+    # Local read of the remote-tracking ref only. It never contacts the network and can be stale.
+    try { return (Invoke-Git $Repository @('rev-parse', '--verify', "refs/remotes/origin/$Branch^{commit}")) } catch { return $null }
+}
+function Assert-Blockers {
+    param([string]$Body)
+    $lines = @($Body -split "`r?`n")
+    $index = -1
+    for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '(?i)^#{1,6}\s*blockers\b') { $index = $i; break } }
+    if ($index -lt 0) { throw 'An incomplete or failing session must document a "## Blockers" section in the reviewed pull request body.' }
+    for ($i = $index + 1; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^#{1,6}\s') { break }
+        if ($lines[$i] -match '^\s*(?:[-*+]|\d+\.)\s+\S') { return }
+    }
+    throw 'The "## Blockers" section must list at least one concrete blocker.'
+}
+function New-ProtocolStep {
+    param([string]$Step, [string]$Status, [string]$Detail)
+    return [ordered]@{ step = $Step; status = $Status; detail = $Detail }
+}
+function Get-SessionProtocol {
+    <#
+      Report the mandatory end-of-session protocol state for one task worktree.
+      Commit, push, and change facts come from Git. Review, test, publication, issue, and
+      handoff steps are attestations recorded by finish-task.ps1, not independent proof.
+      This function is read-only: it never commits, pushes, publishes, or contacts GitHub.
+    #>
+    param([string]$Repository, $Task, [string]$Branch, [string]$BaseCommit)
+    $head = Invoke-Git $Repository @('rev-parse', 'HEAD')
+    $pending = @(Get-ChangedPaths $Repository)
+    $clean = -not [bool](Invoke-Git $Repository @('status', '--porcelain'))
+    $committed = @(Get-Lines (Invoke-Git $Repository @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', "$BaseCommit...HEAD", '--')))
+    $commitCount = [int](Invoke-Git $Repository @('rev-list', '--count', "$BaseCommit..HEAD"))
+    $pushed = Get-PushedCommit $Repository $Branch
+    $changed = ($commitCount -gt 0) -or ($pending.Count -gt 0)
+    $validated = Get-Field $Task 'validatedCommit'
+    $validatedHead = [bool]($validated -and $validated -ceq $head)
+    $testStatus = Get-Field $Task 'testStatus'
+    $pullRequest = Get-Field $Task 'pullRequest'
+    $draft = [bool](Get-Field $Task 'pullRequestDraft')
+    $issueUpdate = Get-Field $Task 'issueUpdate'
+    $projectStatus = Get-Field $Task 'projectStatus'
+    $handoff = Get-Field $Task 'handoff'
+    $steps = [Collections.Generic.List[object]]::new()
+    if (-not $changed) {
+        foreach ($name in @('review-diff', 'tests', 'commit', 'push', 'pull-request', 'issue-and-project')) {
+            $steps.Add((New-ProtocolStep $name 'not-applicable' 'This session produced no repository changes; no empty pull request is created.'))
+        }
+    } else {
+        $reviewDetail = if ($validatedHead) { "Diff reviewed and validated at $head." }
+            elseif ($validated) { "Validation was recorded for $validated, not the current head $head. Review the current diff again." }
+            else { 'No recorded diff review. Inspect the full diff for correctness, unrelated changes, and exposed secrets.' }
+        $steps.Add((New-ProtocolStep 'review-diff' $(if ($validatedHead) { 'complete' } else { 'pending' }) $reviewDetail))
+        $testDetail = switch ($testStatus) {
+            'passed' { "Tests recorded as passed at $validated." }
+            'failed' { "Tests recorded as failed at $validated. A draft pull request must document the blockers." }
+            default { 'No recorded test run. Run the relevant project checks and report their actual results.' }
+        }
+        $testState = 'pending'
+        if ($validatedHead -and $testStatus -eq 'passed') { $testState = 'complete' }
+        elseif ($validatedHead -and $testStatus -eq 'failed' -and $pullRequest -and $draft) { $testState = 'documented-failure' }
+        $steps.Add((New-ProtocolStep 'tests' $testState $testDetail))
+        $commitState = if ($commitCount -gt 0 -and $clean) { 'complete' } else { 'pending' }
+        $commitDetail = if ($commitState -eq 'complete') { "$commitCount commit(s) on '$Branch'; the worktree is clean." }
+            elseif ($pending.Count) { "Uncommitted work remains: $($pending -join ', '). Commit it or preserve it deliberately." }
+            else { "No commits on '$Branch' since $BaseCommit." }
+        $steps.Add((New-ProtocolStep 'commit' $commitState $commitDetail))
+        $pushState = if ($pushed -and $pushed -ceq $head) { 'complete' } else { 'pending' }
+        $pushDetail = if ($pushState -eq 'complete') { "origin/$Branch matches the local head." }
+            elseif ($pushed) { "origin/$Branch is at $pushed; the local head is $head. Push the task branch." }
+            else { "No remote-tracking ref for origin/$Branch. Push the task branch; a never-fetched ref also looks like this." }
+        $steps.Add((New-ProtocolStep 'push' $pushState $pushDetail))
+        $prDetail = if ($pullRequest) { "$(if ($draft) { 'Draft' } else { 'Ready-for-review' }) pull request: $pullRequest" }
+            else { 'No pull request recorded. Create one, or update the existing pull request for this branch instead of opening a duplicate.' }
+        $steps.Add((New-ProtocolStep 'pull-request' $(if ($pullRequest) { 'complete' } else { 'pending' }) $prDetail))
+        $issueDone = $issueUpdate -in @('commented', 'not-authorized', 'not-supported')
+        $projectDone = $projectStatus -in @('updated', 'not-authorized', 'not-supported')
+        $steps.Add((New-ProtocolStep 'issue-and-project' $(if ($issueDone -and $projectDone) { 'complete' } else { 'pending' }) "Issue update: $(if ($issueUpdate) { $issueUpdate } else { 'not recorded' }); Project status: $(if ($projectStatus) { $projectStatus } else { 'not recorded' }). Record an unavailable permission explicitly instead of reporting an update that did not happen."))
+    }
+    $handoffDetail = if ($handoff) { "Handoff recorded: $handoff" }
+        else { 'No handoff recorded. Report completed work, remaining work, test results, blockers, the pull request URL, and the engineering concepts involved.' }
+    $steps.Add((New-ProtocolStep 'handoff' $(if ($handoff) { 'complete' } else { 'pending' }) $handoffDetail))
+    $pendingSteps = @($steps | Where-Object { $_.status -eq 'pending' } | ForEach-Object { $_.step })
+    return [ordered]@{
+        repository = $Repository; branch = $Branch; head = $head; baseCommit = $BaseCommit
+        managed = [bool]$Task; owner = (Get-Field $Task 'owner'); taskStatus = (Get-Field $Task 'status')
+        repositoryChanges = $changed; clean = $clean; commitCount = $commitCount
+        pendingPaths = $pending; committedPaths = $committed; pushedCommit = $pushed
+        pullRequest = $pullRequest; pullRequestDraft = $draft; testStatus = $testStatus
+        steps = @($steps); pendingSteps = $pendingSteps; satisfied = ($pendingSteps.Count -eq 0)
+    }
 }
 Export-ModuleMember -Function *
