@@ -202,7 +202,10 @@ def test_diagnostic_gui_population_config_and_event_history(tmp_path, monkeypatc
     panel.refresh_history()
     assert panel.events.count() == 1
     panel.inspect_event()
+    assert 'Application packet loss' in panel.history_details.toPlainText()
+    panel.history_details.technical.setChecked(True)
     assert 'application_packet_loss' in panel.history_details.toPlainText()
+    panel.history_details.technical.setChecked(False)
     panel.window_seconds.setValue(240)
     panel.minimum_samples.setValue(10)
     panel.configure_diagnostics()

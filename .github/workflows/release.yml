@@ -1,0 +1,57 @@
+name: Windows release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-tag:
+    name: Verify release is on main
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a commit from main
+        shell: pwsh
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Release tags must point to a commit on main.' }
+
+  validate:
+    needs: verify-tag
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Publish tested Windows source bundle
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: windows-source
+          path: dist
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $assets = @(Get-ChildItem -LiteralPath dist -File | Select-Object -ExpandProperty FullName)
+          gh release create $env:RELEASE_TAG @assets --repo $env:GH_REPO --verify-tag --generate-notes --title "PC Optimizer $env:RELEASE_TAG" --notes 'Windows source bundle: requires Windows 10/11 and Python 3.12 or later. Extract, run setup.ps1, then open Launch-PC-Optimizer.cmd. SHA-256 checksum included.'
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

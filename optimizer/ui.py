@@ -20,6 +20,8 @@ from .actions import (ActionEngine, startup_entries, startup_change, disabled_st
                       terminate_process, BALANCED, HIGH)
 from .benchmarks import BenchmarkEngine, TESTS, PARAMETERS, compare_runs, import_presentmon, fingerprint
 from .store import Store, timestamp
+from .readable import explain_error, explain_result, readable_label
+from .readable_ui import ResultView
 from .telemetry import Telemetry, process_list, publisher
 from .windows import (OFFICIAL, inventory, driver_inventory, update_search,
                       stability as event_scan, firmware_url, is_admin, guid, run)
@@ -337,11 +339,14 @@ class MainWindow(QMainWindow):
                 self.close()
 
     def error(self,text):
-        self.status.setText('Operation failed · '+text.strip().splitlines()[-1])
+        message=explain_error(text)
+        self.status.setText(message.replace('\n\n',' '))
         self.store.action('application','failed',{'error':text})
         if hasattr(self,'activity'): self.refresh_activity()
         if not self.closing:
-            QMessageBox.warning(self,'Operation could not complete',text[-5000:])
+            dialog=QMessageBox(QMessageBox.Icon.Warning,'Operation could not complete',message,parent=self)
+            dialog.setDetailedText(text)
+            dialog.exec()
 
     def confirm(self,title,text):
         return QMessageBox.question(self,title,text,QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes
@@ -378,7 +383,7 @@ class MainWindow(QMainWindow):
         l.addWidget(self.system_summary)
         self.volumes=table(['Volume','Capacity (GiB)','Free (GiB)','Used','I/O telemetry'])
         l.addWidget(self.volumes,1)
-        self.hardware_text=QTextEdit(); self.hardware_text.setReadOnly(True); self.hardware_text.setMaximumHeight(150)
+        self.hardware_text=ResultView(); self.hardware_text.setMaximumHeight(200)
         l.addWidget(self.hardware_text)
         l.addWidget(button('Rescan hardware & current storage',self.scan_hardware))
 
@@ -412,7 +417,7 @@ class MainWindow(QMainWindow):
     def hardware_ready(self,data):
         self.hardware=data
         self.store.set('hardware',data)
-        self.hardware_text.setPlainText(json.dumps(data,indent=2))
+        self.hardware_text.set_data(data)
         self.status.setText('Hardware scan complete. Unsupported sensors are labeled unavailable.')
         self.refresh_cards()
 
@@ -435,19 +440,19 @@ class MainWindow(QMainWindow):
         power=h.get('power','Scan pending')
         prior='Prior user-provided diagnostics; causality unproven. '
         drivers='Installed driver versions: Driver Manager. Latest official release: not yet verified.'
-        pagefile=json.dumps(h.get('pagefile_policy',[]))+'; usage '+json.dumps(h.get('pagefile_usage',[]))
+        pagefile=explain_result({'pagefile_policy':h.get('pagefile_policy',[]),'pagefile_usage':h.get('pagefile_usage',[])})
         board=(h.get('board') or [{}])[0].get('Product','Unknown model')
         return [
             ('NVIDIA graphics / hibernation','Review a compatible official driver release; install with the vendor installer, then repeat hibernation tests.',drivers,prior+'Three RTX 2060 power-down path crashes. An update is a candidate intervention, not a proven fix.','Moderate','Recommended',None,OFFICIAL['NVIDIA graphics']),
             ('Realtek audio / shutdown','Review the exact-board ASUS audio driver and repeat shutdown tests.',drivers,prior+'One shutdown crash blocked the audio path.','Moderate','Recommended',None,OFFICIAL['ASUS board / audio / LAN / Wi-Fi / Bluetooth']),
             ('AMD chipset','Compare installed chipset package with the applicable AMD AM4 B550 release.',drivers,prior+'Storage and power transition findings make chipset compatibility relevant. Per-device versions do not equal chipset package versions.','Moderate','Recommended',None,OFFICIAL['AMD chipset']),
-            ('Storage maintenance','Run Windows media-aware Optimize Drives on the system volume.',json.dumps(h.get('disks',[])),prior+'Two SATA/storage-path analyses. Optimization does not repair controller faults; review errors and benchmark latency. No personal files are deleted.','Low','Recommended','storage',None),
+            ('Storage maintenance','Run Windows media-aware Optimize Drives on the system volume.',explain_result(h.get('disks',[])),prior+'Two SATA/storage-path analyses. Optimization does not repair controller faults; review errors and benchmark latency. No personal files are deleted.','Low','Recommended','storage',None),
             ('Pagefile configuration','Use Windows system-managed paging; restart later to activate allocation changes.',pagefile,prior+'Paging waits occurred. Check commit limit and disk latency; system-managed sizing is not proof of a crash fix. Previous policy and manual sizes are saved for rollback.','Moderate','Recommended','pagefile',None),
             ('Balanced power management','Use the standard Windows Balanced plan for daily use, then test transitions.',power,'Balances idle power and boost demand. No guaranteed FPS gain. Previous active plan is saved.','Low','Recommended' if BALANCED not in power.lower() else 'Up-to-date','balanced',None),
             ('CPU / quantitative throughput','Optionally test High performance for sustained compute, then compare identical workloads.',power,'Can raise idle power and heat without improving throughput. Mutually exclusive with Balanced. Revert restores the saved active plan.','Moderate','All','performance',None),
             ('Wi-Fi / Bluetooth / LAN','Use the exact motherboard support page; match hardware IDs before installing.',drivers,'Official board drivers preserve device-specific compatibility. No unverified latest version is claimed.','Moderate','All',None,OFFICIAL['ASUS board / audio / LAN / Wi-Fi / Bluetooth']),
-            ('BIOS / firmware',f'Check official firmware and instructions for detected board: {board}.',json.dumps(h.get('bios',[])),'Exact model required. Board variants are not interchangeable. Flash manually only after verifying model, release notes and recovery instructions.','High','All',None,firmware_url(board)),
-            ('Windows updates','Review available updates in Windows Update; OS upgrades require separate explicit approval.',str((h.get('os') or [{}])[0]),'Update metadata is obtained from the local Windows Update Agent when you click Check updates. Nothing installs automatically.','Moderate','All',None,OFFICIAL['Windows Update']),
+            ('BIOS / firmware',f'Check official firmware and instructions for detected board: {board}.',explain_result(h.get('bios',[])),'Exact model required. Board variants are not interchangeable. Flash manually only after verifying model, release notes and recovery instructions.','High','All',None,firmware_url(board)),
+            ('Windows updates','Review available updates in Windows Update; OS upgrades require separate explicit approval.',explain_result(h.get('os',[])),'Update metadata is obtained from the local Windows Update Agent when you click Check updates. Nothing installs automatically.','Moderate','All',None,OFFICIAL['Windows Update']),
             ('Startup applications','Review each entry and disable only unnecessary current-user entries.','Live list on Startup & Processes','Reversible backups are supported for current-user Registry Run entries. Security, hardware, cooling and game components are protected.','Low','All',None,'page:5'),
             ('Background software','Identify high-resource applications and explicitly close selected applications.','Live process CPU and memory on Startup & Processes','No automatic service changes or software removal. Xilinx uninstall is already complete; projects remain protected.','Moderate','All',None,'page:5'),
             ('GPU settings / gaming','Use NVIDIA Control Panel per-game settings and capture a repeatable scene with PresentMon.','Vendor defaults are retained','Measure FPS and frametimes before any per-game change. Global registry tweaks and security disablement are excluded.','Low','All',None,'page:3'),
@@ -538,7 +543,7 @@ class MainWindow(QMainWindow):
 
     def show_output(self,title,output):
         self.status.setText(title+' · complete')
-        self.activity.setPlainText(output if isinstance(output,str) else json.dumps(output,indent=2))
+        self.activity.set_data(output)
 
     def make_drivers(self):
         l=self.page('Driver Manager','Installed versions from signed PnP inventory • Available releases remain unverified until matched to official device and OS support')
@@ -550,7 +555,7 @@ class MainWindow(QMainWindow):
         l.addLayout(controls)
         self.driver_table=table(['Device','Installed version','Driver date','Provider','Available version','Status / OS','Hardware ID'])
         l.addWidget(self.driver_table,1)
-        self.driver_info=QTextEdit(); self.driver_info.setReadOnly(True); self.driver_info.setMaximumHeight(140)
+        self.driver_info=ResultView(); self.driver_info.setMaximumHeight(190)
         self.driver_info.setPlainText('Click Check Windows Update metadata for applicable update offers. Official vendor pages provide release versions, release dates and OS support. Windows Update titles may omit a version; the app will not infer it. Driver installation remains in the official installer or Windows Update, with its own approval and rollback workflow.')
         l.addWidget(self.driver_info)
         self.vendor=QComboBox(); self.vendor.addItems(list(OFFICIAL)[:4])
@@ -581,7 +586,7 @@ class MainWindow(QMainWindow):
     def updates_ready(self,data):
         self.updates=data
         self.store.set('update_offers',dict(checked=timestamp(),updates=data))
-        self.driver_info.setPlainText(json.dumps(data,indent=2) if data else 'Windows Update reports no currently offered updates. This does not establish that all vendor drivers are current.')
+        self.driver_info.set_data(data if data else 'Windows Update reports no currently offered updates. This does not establish that all vendor drivers are current.')
         self.status.setText(f'{len(data)} applicable update offers found. No downloads or installations initiated.')
 
     def make_benchmarks(self):
@@ -629,8 +634,8 @@ class MainWindow(QMainWindow):
         display=[]
         for key,v in data['results'].items():
             extra={k:x for k,x in v.items() if k not in ('value','unit','samples','higher','cv')}
-            display.append((key,fmt(v['value']),v['unit'],', '.join(fmt(x) for x in v['samples']),json.dumps(extra)))
-        for key,error in data['errors'].items(): display.append((key,'Unavailable','—','—',error))
+            display.append((TESTS.get(key,(readable_label(key),))[0],fmt(v['value']),v['unit'],', '.join(fmt(x) for x in v['samples']),explain_result(extra)))
+        for key,error in data['errors'].items(): display.append((TESTS.get(key,(readable_label(key),))[0],'Unavailable','—','—',error))
         fill(self.bench_table,display)
         self.status.setText(f"Run #{data['id']} saved locally with hardware, parameters and action history.")
         self.refresh_history()
@@ -659,10 +664,12 @@ class MainWindow(QMainWindow):
         l.addWidget(self.compare_table,1)
         self.history_chart=Chart('History · selected metric (chronological)','#a9a0ff',None)
         l.addWidget(self.history_chart)
-        self.history_metric=QComboBox(); self.history_metric.addItems(list(TESTS)+['gaming'])
+        self.history_metric=QComboBox()
+        for key in list(TESTS)+['gaming']:
+            self.history_metric.addItem(TESTS.get(key,('Gaming capture',))[0],key)
         self.history_metric.currentTextChanged.connect(self.draw_history)
         l.addWidget(self.history_metric)
-        self.comparison_info=QTextEdit(); self.comparison_info.setReadOnly(True); self.comparison_info.setMaximumHeight(170)
+        self.comparison_info=ResultView(); self.comparison_info.setMaximumHeight(220)
         l.addWidget(self.comparison_info)
         self.refresh_history()
 
@@ -686,8 +693,8 @@ class MainWindow(QMainWindow):
 
     def draw_history(self,*_):
         if not hasattr(self,'history_metric'): return
-        key=self.history_metric.currentText()
-        self.history_chart.title='History · '+key+' (chronological; inspect protocols before comparing)'
+        key=self.history_metric.currentData()
+        self.history_chart.title='History · '+self.history_metric.currentText()+' (chronological; inspect protocols before comparing)'
         self.history_chart.values.clear()
         for r in reversed(self.runs):
             value=r['payload'].get('results',{}).get(key,{}).get('value')
@@ -700,12 +707,12 @@ class MainWindow(QMainWindow):
         if not a or not b or a['id']==b['id']:
             QMessageBox.information(self,'Select two runs','Choose two different saved benchmark runs.'); return
         comparisons=compare_runs(a,b)
-        fill(self.compare_table,[(v['test'],fmt(v['baseline'])+' '+v['unit'],fmt(v['current'])+' '+v['unit'],
+        fill(self.compare_table,[(TESTS.get(v['test'],(readable_label(v['test']),))[0],fmt(v['baseline'])+' '+v['unit'],fmt(v['current'])+' '+v['unit'],
                                  fmt(v['absolute']),fmt(v['percent'],'%'),v['status']) for v in comparisons])
         info={'comparison_rule':'3% minimum noise band or 2 × combined within-run coefficient of variation. Heuristic, not statistical proof. Driver or OS changes invalidate controlled comparisons; results remain visible.',
               'baseline_action_history':a['payload'].get('optimization_state',[]),
               'current_action_history':b['payload'].get('optimization_state',[])}
-        self.comparison_info.setPlainText(json.dumps(info,indent=2))
+        self.comparison_info.set_data(info)
 
     def make_processes(self):
         l=self.page('Startup & Processes','Explicit choices only • Current-user Registry Run rollback • Protected system, security, cooling and game components cannot be changed')
@@ -737,7 +744,7 @@ class MainWindow(QMainWindow):
         i=self.process_table.currentRow()
         if i<0: return
         item=self.processes[i]
-        self.launch(lambda _:publisher(item['exe']),lambda out:QMessageBox.information(self,'Publisher information',json.dumps(out,indent=2)))
+        self.launch(lambda _:publisher(item['exe']),lambda out:QMessageBox.information(self,'Publisher information',explain_result(out)))
 
     def close_process(self):
         i=self.process_table.currentRow()
@@ -784,9 +791,9 @@ class MainWindow(QMainWindow):
         row.addWidget(button('Cancel scheduled transition',self.cancel_transition))
         row.addWidget(button('Collect saved transition result',self.collect_transition))
         l.addLayout(row)
-        self.stability_output=QTextEdit(); self.stability_output.setReadOnly(True)
+        self.stability_output=ResultView()
         pending=self.store.get('pending_transition')
-        self.stability_output.setPlainText('Saved transition awaiting collection:\n'+json.dumps(pending,indent=2) if pending else 'No transition test pending. Run a test before collecting new stability evidence.\n\nShutdown duration requires a Diagnostics-Performance event 200 after the next boot. Total wall time includes time powered off and is never labeled shutdown completion time. Sleep/hibernate success requires your observation plus event review.')
+        self.stability_output.set_data({'saved_transition_awaiting_collection':pending} if pending else 'No transition test pending. Run a test before collecting new stability evidence.\n\nShutdown duration requires a Diagnostics-Performance event 200 after the next boot. Total wall time includes time powered off and is never labeled shutdown completion time. Sleep/hibernate success requires your observation plus event review.')
         l.addWidget(self.stability_output,1)
         row=QHBoxLayout()
         row.addWidget(button('Open dump in local WinDbg',self.open_dump))
@@ -799,14 +806,14 @@ class MainWindow(QMainWindow):
             events=event_scan()
             self.store.save_run('event observation',{'events':events,'captured_at':timestamp()})
             return events
-        self.launch(work,lambda out:self.stability_output.setPlainText(json.dumps(out,indent=2)))
+        self.launch(work,self.stability_output.set_data)
 
     def observe_stability(self):
         def work(progress):
             out=stability.observe(progress=progress)
             self.store.save_run('stability observation',out)
             return out
-        self.launch(work,lambda out:self.stability_output.setPlainText(json.dumps(out,indent=2)))
+        self.launch(work,self.stability_output.set_data)
 
     def begin_transition(self):
         if self.benchmark or self.action_busy:
@@ -824,7 +831,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self,'No saved test','Initiate a transition test first.'); return
         answer=QMessageBox.question(self,'Transition outcome','Did the requested transition and return to the desktop complete successfully?',QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
         if answer==QMessageBox.StandardButton.Cancel:return
-        self.launch(lambda _:stability.collect(self.store,answer==QMessageBox.StandardButton.Yes),lambda out:self.stability_output.setPlainText(json.dumps(out,indent=2)))
+        self.launch(lambda _:stability.collect(self.store,answer==QMessageBox.StandardButton.Yes),self.stability_output.set_data)
 
     def open_dump(self):
         debugger=self.hardware.get('windbg')
@@ -842,14 +849,14 @@ class MainWindow(QMainWindow):
         row.addWidget(button('Restart as administrator · UAC',self.elevate))
         row.addWidget(button('Open local data folder',lambda:self.open_url(QUrl.fromLocalFile(str(self.store.path.parent)).toString())))
         l.addLayout(row)
-        self.activity=QTextEdit(); self.activity.setReadOnly(True)
+        self.activity=ResultView()
         l.addWidget(self.activity,1)
         l.addWidget(label(f'PC Optimizer {__version__} · Database: {self.store.path}\nNo action is applied at launch. Live ICMP probes go to the IPv4 gateway and 1.1.1.1. Network benchmarks send bounded synthetic traffic only after consent. Windows Update checks are initiated manually.','muted'))
         self.refresh_activity()
 
     def refresh_activity(self):
         if hasattr(self,'activity'):
-            self.activity.setPlainText(json.dumps(self.store.actions(),indent=2))
+            self.activity.set_data(self.store.actions())
 
     def elevate(self):
         if is_admin():

@@ -1,12 +1,13 @@
 """Network Center composed from the application's existing widgets and worker pool."""
-import json
 from copy import deepcopy
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
-    QComboBox, QTabWidget, QTextEdit, QLineEdit, QScrollArea, QSpinBox, QCheckBox, QSizePolicy)
+    QComboBox, QTabWidget, QLineEdit, QScrollArea, QSpinBox, QCheckBox, QSizePolicy)
 
 from . import network
+from .readable import explain_result, readable_label
+from .readable_ui import ResultView
 from .wlan import scan_wifi
 
 
@@ -199,8 +200,8 @@ class NetworkCenter(QWidget):
         self.saved = QComboBox(); row.addWidget(self.saved, 1)
         row.addWidget(self.button('Inspect saved snapshot / result', self.inspect_saved))
         layout.addLayout(row)
-        self.history_details = QTextEdit(); self.history_details.setReadOnly(True)
-        self.history_details.setMaximumHeight(180)
+        self.history_details = ResultView()
+        self.history_details.setMaximumHeight(230)
         layout.addWidget(self.history_details)
         events = QHBoxLayout()
         self.events = QComboBox()
@@ -218,7 +219,7 @@ class NetworkCenter(QWidget):
         for name in ('OEM support', 'Intel support', 'Realtek support'):
             row.addWidget(self.button(name, lambda n=name: self.host.open_url(network.SOURCES[n])))
         layout.addLayout(row)
-        self.driver_details = QTextEdit(); self.driver_details.setReadOnly(True)
+        self.driver_details = ResultView()
         self.driver_details.setPlainText('Verification has not been requested. Use your system manufacturer for OEM adapters; the ASUS link is for ASUS hardware only.')
         layout.addWidget(self.driver_details, 1)
 
@@ -264,7 +265,7 @@ class NetworkCenter(QWidget):
             return
         w = a.get('wifi', {})
         self.adapter_text.setText(f"{a['model']} · {a['kind']} · {a['status']}\nDriver: {a.get('driver') or 'Unavailable'} · link {fmt(a.get('link_bps', 0) / 1e6, ' Mbit/s')} (negotiated, not throughput)\nSSID: {w.get('ssid', 'Unavailable / not Wi-Fi')} · band {w.get('band', 'Unavailable')} · channel {w.get('channel', 'Unavailable')} · {w.get('frequency_khz', 'Unavailable')} kHz · RX {w.get('rx_mbps', 'Unavailable')} / TX {w.get('tx_mbps', 'Unavailable')} Mbit/s\n{a.get('power_error') or ''} {a.get('advanced_error') or ''} {w.get('connection_error') or ''}")
-        values = [[k, v or 'Unavailable', 'Power-management inspection; changes limited to two allowlisted properties'] for k, v in (a.get('power') or {}).items()]
+        values = [[readable_label(k), v if v is not None else 'Unavailable', 'Power-management inspection; changes limited to two allowlisted properties'] for k, v in (a.get('power') or {}).items()]
         values += [[p.get('DisplayName') or p.get('RegistryKeyword'), p.get('DisplayValue') or p.get('RegistryValue'),
                     'Read only · supported values: ' + str(p.get('ValidDisplayValues') or p.get('ValidRegistryValues') or 'unavailable')]
                    for p in a.get('advanced', [])]
@@ -454,10 +455,10 @@ class NetworkCenter(QWidget):
     def benchmark_ready(self, out):
         from .ui import fill, fmt
         self.latest_benchmark = out
-        fill(self.bench_table, [[k, fmt(v['value']), 'Single-stream throughput' if k.endswith('_mbps') else
-                                ('Configured resolver; cache may contribute' if k == 'dns_ms' else 'ICMP observation; routing/filtering may affect results')]
+        fill(self.bench_table, [[readable_label(k), fmt(v['value']), 'Single-stream throughput' if k.endswith('_mbps') else
+                                ('Website name lookup through the configured resolver; cache may contribute' if k.startswith('dns_') else 'Response-time probe; routing/filtering may affect results')]
                                for k, v in out['results'].items()])
-        self.benchmark_status.setText(f"Saved run #{out['id']} · " + ('Completed' if out['complete'] else json.dumps(out['errors'])))
+        self.benchmark_status.setText(f"Saved run #{out['id']} · " + ('Completed' if out['complete'] else 'Some tests did not complete.\n' + explain_result(out['errors'])))
         self.bloat_status.setText('Bufferbloat / loaded latency:\n' + '\n'.join(
             f"{k}: {fmt(v.get('increase_ms'), ' ms increase')} · {v['status']}" for k, v in out['loaded'].items()) +
             '\nNo grade: bottleneck saturation and causality are unverified.')
@@ -489,7 +490,7 @@ class NetworkCenter(QWidget):
 
     def inspect_event(self):
         event = next((e for e in self.host.store.diagnostic_events() if e['id'] == self.events.currentData()), None)
-        self.history_details.setPlainText(json.dumps(event, indent=2) if event else 'No diagnostic events saved yet.')
+        self.history_details.set_data(event if event else 'No diagnostic events saved yet.')
 
     def configure_diagnostics(self):
         if self.sample_busy:
@@ -509,7 +510,7 @@ class NetworkCenter(QWidget):
 
     def inspect_saved(self):
         r = next((r for r in self.host.store.runs() if r['id'] == self.saved.currentData()), None)
-        self.history_details.setPlainText(json.dumps(r, indent=2) if r else 'No saved selection.')
+        self.history_details.set_data(r if r else 'No saved selection.')
 
     def compare(self):
         from .ui import fill, fmt
@@ -520,7 +521,7 @@ class NetworkCenter(QWidget):
             return
         result = network.compare_network(a, b, medium_comparison=self.medium_comparison.isChecked())
         self.compare_status.setText(('Comparable recorded conditions. ' if result['comparable'] else 'Not comparable: ' + '; '.join(result['reasons']) + '. ') + result['conclusion'])
-        fill(self.compare_table, [[v['metric'], fmt(v['before']), fmt(v['after']), fmt(v['delta']), v['status']] for v in result['results']])
+        fill(self.compare_table, [[readable_label(v['metric']), fmt(v['before']), fmt(v['after']), fmt(v['delta']), v['status']] for v in result['results']])
 
     def verify_drivers(self):
         if self.driver_busy or self.host.benchmark or self.host.action_busy or not network.active_adapter(self.snapshot):
@@ -532,7 +533,7 @@ class NetworkCenter(QWidget):
             out = network.verify_driver_updates(snapshot)
             self.host.store.save_run('network driver verification', out)
             return out
-        job = self.host.launch(work, lambda out: self.driver_details.setPlainText(json.dumps(out, indent=2)))
+        job = self.host.launch(work, self.driver_details.set_data)
         job.signals.done.connect(self.driver_finished)
 
     def driver_finished(self):
