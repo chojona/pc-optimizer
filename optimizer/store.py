@@ -18,6 +18,7 @@ class Store:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY, created TEXT, kind TEXT, payload TEXT);
+                CREATE TABLE IF NOT EXISTS network_events (id INTEGER PRIMARY KEY, created TEXT, payload TEXT);
                 CREATE TABLE IF NOT EXISTS actions (id INTEGER PRIMARY KEY, created TEXT, action TEXT,
                     status TEXT, payload TEXT);
             """)
@@ -55,3 +56,14 @@ class Store:
         with self.lock, self.connect() as db:
             return [dict(id=r[0], created=r[1], kind=r[2], payload=json.loads(r[3]))
                     for r in db.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 500")]
+
+    def save_diagnostic_event(self, payload):
+        with self.lock, self.connect() as db:
+            c = db.execute("INSERT INTO network_events(created,payload) VALUES (?,?)",
+                           (timestamp(), json.dumps(payload)))
+            return c.lastrowid
+
+    def diagnostic_events(self, limit=200):
+        with self.lock, self.connect() as db:
+            return [dict(id=r[0], created=r[1], payload=json.loads(r[2])) for r in db.execute(
+                "SELECT id,created,payload FROM network_events ORDER BY id DESC LIMIT ?", (limit,))]

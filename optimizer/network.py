@@ -18,8 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import psutil
 
+from .diagnostics import DiagnosticConfig, analyze, latency_stats
 from .store import timestamp
-from .telemetry import ping, network_stats
+from .telemetry import ping
 from .windows import psjson, powershell, rows, is_admin
 from .wlan import read_wifi
 
@@ -135,33 +136,80 @@ def channel_summary(wifi):
 
 
 class NetworkMonitor:
-    def __init__(self):
+    def __init__(self, store=None, config=None):
+        self.store = store
+        self.config = config or DiagnosticConfig()
         self.target_key = None
-        self.samples = {'gateway': deque(maxlen=60), 'external': deque(maxlen=60)}
+        self.rounds = deque(maxlen=10000)
+        self.last_event = None
+        self.last_event_at = float('-inf')
         self.counters = psutil.net_io_counters(pernic=True)
         self.last_time = time.monotonic()
 
+    def configure(self, config):
+        self.config = config
+        self.rounds.clear()
+        self.target_key = None
+        self.last_event = None
+        self.last_event_at = float('-inf')
+        if self.store:
+            self.store.set('network:diagnostic_config', config.payload())
+
     def sample(self, snapshot):
-        snapshot = dict(snapshot, route=current_route())
+        route = current_route()
+        snapshot = dict(snapshot, route=route)
         adapter = active_adapter(snapshot)
-        key = ((snapshot.get('route') or {}).get('InterfaceIndex'), gateway(snapshot))
+        wifi = read_wifi()
+        radio = next((w for w in wifi.get('interfaces', []) if adapter and
+                      normalize_guid(w['guid']) == normalize_guid(adapter['guid'])), {})
+        signal_at = time.monotonic()
+        key = ((route or {}).get('InterfaceIndex'), gateway(snapshot),
+               (adapter or {}).get('guid'), radio.get('bssid'), radio.get('channel'))
         path_changed = key != self.target_key
         if path_changed:
-            for values in self.samples.values():
-                values.clear()
+            self.rounds.clear()
             self.target_key = key
-        targets = {'gateway': gateway(snapshot), 'external': '1.1.1.1'}
-        # Separate bounded probes; missing gateway is unavailable, not 100% packet loss.
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            futures = {k: pool.submit(ping, host) for k, host in targets.items() if host}
-            current = {k: f.result() for k, f in futures.items()}
-        out = dict(captured_at=timestamp(), targets=targets, current=current,
-                   path_changed=path_changed, route=snapshot.get('route'),
-                   routed_adapter=(adapter or {}).get('name'), wifi=read_wifi())
-        for k in targets:
-            if targets[k]:
-                self.samples[k].append(current.get(k))
-            out[k] = network_stats(list(self.samples[k]))
+        targets = {'gateway': gateway(snapshot), **{t: t for t in self.config.external_targets}}
+        captured = timestamp()
+        def probe(host):
+            start = time.monotonic()
+            try:
+                value = ping(host)
+                return dict(start=start, end=time.monotonic(), ms=value, error=None)
+            except Exception as exc:
+                return dict(start=start, end=time.monotonic(), ms=None, error=str(exc))
+        # Workers start together; actual dispatch timestamps, rather than list indices,
+        # decide whether successful measurements qualify for correlation.
+        with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+            futures = {k: pool.submit(probe, host) for k, host in targets.items() if host}
+            probes = {k: f.result() for k, f in futures.items()}
+        stable = current_route() == route
+        row = dict(captured_at=captured, at=signal_at, probes=probes,
+                   signal_percent=radio.get('signal_percent'), signal_at=signal_at)
+        if not stable:
+            self.rounds.clear()
+            self.target_key = None
+        else:
+            self.rounds.append(row)
+        cutoff = time.monotonic() - self.config.window_seconds
+        while self.rounds and self.rounds[0]['at'] < cutoff:
+            self.rounds.popleft()
+        diagnostic = analyze(list(self.rounds), self.config)
+        first = self.config.external_targets[0]
+        out = dict(captured_at=captured, targets=dict(targets, external=first),
+                   current=dict({k: v['ms'] for k, v in probes.items()}, external=probes[first]['ms']),
+                   path_changed=path_changed or not stable, route=route,
+                   routed_adapter=(adapter or {}).get('name'), wifi=wifi,
+                   gateway=diagnostic['statistics']['gateway'], external=diagnostic['statistics'][first],
+                   diagnostic=diagnostic, round=row, config=self.config.payload(), stable_round=stable)
+        event_key = (key, diagnostic['fault'])
+        event_at = time.monotonic()
+        # Save changes immediately and recurring evidence once per minute, using existing SQLite.
+        if self.store and (event_key != self.last_event or event_at - self.last_event_at >= 60):
+            self.store.save_diagnostic_event(dict(captured_at=captured, path=key,
+                config=self.config.payload(), diagnostic=diagnostic, rounds=list(self.rounds),
+                stable_round=stable))
+            self.last_event, self.last_event_at = event_key, event_at
         now = time.monotonic()
         counters = psutil.net_io_counters(pernic=True)
         out['adapters'] = []
@@ -195,14 +243,12 @@ def recommendations(snapshot, observation=None, benchmark=None):
     if peers:
         card('Review the router channel', f"{len(peers)} other cached BSS observations on channel {w.get('channel')} ({w.get('band')}).",
              'An AP channel survey may identify less contention. Counts do not measure airtime or prove congestion. Router changes require separate manual review.')
-    obs = observation or {}
-    g, e = obs.get('gateway', {}), obs.get('external', {})
-    if g.get('sent', 0) >= 10 and (g.get('loss_percent', 0) > 0 or (g.get('jitter_ms') or 0) > 5):
-        card('Investigate local path instability', f"Gateway: {g.get('loss_percent')}% unanswered, jitter {g.get('jitter_ms')} ms over {g['sent']} probes.",
-             'Check cable, radio placement and gateway load before changing adapter settings. ICMP filtering or rate limiting can mimic loss.')
-    if e.get('sent', 0) >= 10 and (e.get('loss_percent', 0) > 0 or (e.get('latency_ms') or 0) > 60):
-        card('Check upstream load and application paths', f"External ICMP: {e.get('latency_ms')} ms, {e.get('loss_percent')}% unanswered.",
-             'Test router queue management and ISP path, and monitor the actual game or broker connection separately. 1.1.1.1 is not a trading execution venue.')
+    diag = (observation or {}).get('diagnostic')
+    if diag:
+        card(diag['fault'].replace('_', ' ').title(),
+             f"{diag['aligned_rounds']} aligned rounds; {diag['shared_spikes']} shared spikes; "
+             f"{diag['external_only_spikes']} external-only spikes; confidence {diag['confidence']}. "
+             + diag['limitations'], diag['recommendation'])
     for prop in POWER_PROPERTIES:
         if (a.get('power') or {}).get(prop) == 'Enabled':
             card('Review ' + prop, f"{a['name']}: {prop} is Enabled; no power-transition fault has been established.",
@@ -215,8 +261,6 @@ def recommendations(snapshot, observation=None, benchmark=None):
                 card('Investigate queueing during ' + direction,
                      f"Observed loaded latency increase {bloat['increase_ms']:.1f} ms. Saturation was not verified.",
                      'Router SQM or scheduling bulk transfers outside gaming/trading sessions may help. Verify at matched load; no router setting is changed here.')
-    card('Verify the exact network driver', f"Installed {a.get('model')}, driver {a.get('driver') or 'unavailable'}.",
-         'Review hardware-matched Windows Update metadata and OEM release notes for relevant fixes. A newer version alone does not establish better performance.', 'Moderate')
     return result
 
 
@@ -430,10 +474,10 @@ class NetworkBenchmark:
             out['idle_background_mbps'] = (max(0, idle_after.bytes_recv + idle_after.bytes_sent -
                 idle_counters.bytes_recv - idle_counters.bytes_sent) * 8 / 1e6 /
                 max(.001, time.monotonic() - idle_start)) if idle_counters and idle_after else None
-            out['baseline'] = {k: dict(network_stats(v), samples=v, p95_ms=percentile(v)) for k, v in baseline.items()}
+            out['baseline'] = {k: dict(latency_stats(v), samples=v) for k, v in baseline.items()}
             for k, v in out['baseline'].items():
                 out['results'][k + '_latency_ms'] = summarize(v['samples'])
-                out['results'][k + '_loss_percent'] = dict(value=v['loss_percent'], samples=[], stdev=None)
+                out['results'][k + '_icmp_nonresponse_percent'] = dict(value=v['loss_percent'], samples=[], stdev=None)
                 out['results'][k + '_jitter_ms'] = dict(value=v['jitter_ms'], samples=[], stdev=None)
             progress('Measuring configured DNS resolver (cache may contribute)…')
             self.check()
@@ -485,7 +529,7 @@ class NetworkBenchmark:
                 idle_median = summarize(base['samples'])['value']
                 increase = loaded_median - idle_median if valid else None
                 out['loaded'][direction] = dict(samples=values, duration_seconds=duration, transfers=transfers,
-                    stats=network_stats(values), increase_ms=increase, saturation_verified=False,
+                    stats=latency_stats(values), increase_ms=increase, saturation_verified=False,
                     status='Observed loaded latency; saturation unverified' if valid else
                     'Inconclusive: transfer too short, failed, or insufficient ICMP replies; saturation unverified')
                 out['results'][direction + '_loaded_increase_ms'] = dict(value=increase, samples=[], stdev=None)
@@ -502,21 +546,28 @@ class NetworkBenchmark:
         return out
 
 
-def compare_network(before, after):
+def compare_network(before, after, *, medium_comparison=False):
     """Conservative comparisons: never infer a verified fix from a single uncontrolled pair."""
     a, b = before['payload'], after['payload']
     reasons = []
     if before['id'] == after['id']:
         reasons.append('Select two different runs')
-    for key in ('parameters', 'context', 'conditions'):
+    ca, cb = a.get('context', {}), b.get('context', {})
+    if medium_comparison:
+        if {ca.get('kind'), cb.get('kind')} != {'Wi-Fi', 'Ethernet'}:
+            reasons.append('Select one Wi-Fi run and one Ethernet run')
+        # Adapter/radio identity must differ across media. Shared declared environment,
+        # DNS and protocol are still required; the Internet route remains a confound.
+        if not ca.get('dns') or ca.get('dns') != cb.get('dns'):
+            reasons.append('DNS configuration differs or is unavailable')
+    for key in (('parameters', 'conditions') if medium_comparison else ('parameters', 'context', 'conditions')):
         if not a.get(key) or a.get(key) != b.get(key):
             reasons.append(key + ' differs or is missing')
     if not a.get('complete') or not b.get('complete') or not a.get('stable_path') or not b.get('stable_path'):
         reasons.append('Incomplete test or route changed during measurement')
     if not all(a.get('context', {}).get(k) and b.get('context', {}).get(k) for k in ('guid', 'pnp_id', 'driver')):
         reasons.append('Adapter/driver identity unavailable')
-    if a.get('context', {}).get('kind') == 'Wi-Fi' and not all(
-            a.get('context', {}).get(k) and b.get('context', {}).get(k) for k in ('ssid', 'bssid', 'channel', 'band')):
+    if any(v.get('kind') == 'Wi-Fi' and not all(v.get(k) for k in ('ssid', 'bssid', 'channel', 'band')) for v in (ca, cb)):
         reasons.append('Wi-Fi path identity unavailable')
     traffic_a, traffic_b = a.get('idle_background_mbps'), b.get('idle_background_mbps')
     if traffic_a is None or traffic_b is None:
@@ -524,9 +575,10 @@ def compare_network(before, after):
     elif abs(traffic_a - traffic_b) > max(1, max(traffic_a, traffic_b) * .2):
         reasons.append('Idle background traffic differs materially')
     signals = [x for v in (a, b) for x in (v.get('signal_before'), v.get('signal_after')) if x is not None]
-    if signals and (len(signals) != 4 or max(signals) - min(signals) > 10):
+    expected_signals = 2 if medium_comparison else 4
+    if signals and (len(signals) != expected_signals or max(signals) - min(signals) > 10):
         reasons.append('Wi-Fi signal changed or is unavailable')
-    if a.get('context', {}).get('ssid') and not signals:
+    if any(v.get('kind') == 'Wi-Fi' for v in (ca, cb)) and not signals:
         reasons.append('Wi-Fi signal unavailable')
     result = []
     for name, old in a.get('results', {}).items():
@@ -549,4 +601,4 @@ def compare_network(before, after):
                 status = 'Observed improvement' if (delta > 0) == name.endswith('_mbps') else 'Observed regression'
         result.append(dict(metric=name, before=x, after=y, delta=delta, status=status))
     return dict(comparable=not reasons, reasons=reasons, results=result,
-                conclusion='No verified causal improvement. Repeat alternating before/after trials under matched load; internet/server conditions remain uncontrolled.')
+                conclusion=('Wi-Fi versus Ethernet observational comparison; adapter, driver and route changes are confounds. ' if medium_comparison else '') + 'No verified causal improvement. Repeat alternating before/after trials under matched load; internet/server conditions remain uncontrolled.')

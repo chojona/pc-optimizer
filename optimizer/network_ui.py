@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
-    QComboBox, QTabWidget, QTextEdit, QLineEdit, QScrollArea)
+    QComboBox, QTabWidget, QTextEdit, QLineEdit, QScrollArea, QSpinBox, QCheckBox)
 
 from . import network
 from .wlan import scan_wifi
@@ -20,7 +20,21 @@ class NetworkCenter(QWidget):
         self.snapshot = {}
         self.observation = {}
         self.latest_benchmark = None
-        self.monitor = network.NetworkMonitor()
+        try:
+            config = network.DiagnosticConfig(**(host.store.get('network:diagnostic_config') or {}))
+        except (ValueError, TypeError):
+            config = network.DiagnosticConfig()
+        self.monitor = network.NetworkMonitor(host.store, config)
+        self.setStyleSheet("""
+            QTabWidget::pane { border:1px solid #35465f; background:#111c2c; }
+            QTabBar::tab { background:#1b2a40; color:#cfdbec; padding:10px 12px;
+                          border:1px solid #3b4c66; margin-right:2px; }
+            QTabBar::tab:selected { background:#285447; color:#fff; border-bottom:3px solid #75ebc7; }
+            QTabBar::tab:hover { background:#304963; color:#fff; }
+            QSpinBox { background:#192438; color:#e5efff; padding:6px; border:1px solid #52657e; }
+            QLabel#metric { font-size:23px; }
+            QLabel#muted { color:#b4c3d8; }
+        """)
         self.actions = network.NetworkActions(host.store)
         self.scan_busy = self.sample_busy = self.driver_busy = self.survey_busy = False
         self.closed = False
@@ -54,10 +68,13 @@ class NetworkCenter(QWidget):
         self.external_chart = Chart('External · ICMP ms', '#66bbff', None)
         self.loss_chart = Chart('External · rolling unanswered %', '#f2b86b', 100)
         for chart in (self.gateway_chart, self.external_chart, self.loss_chart):
-            chart.setMinimumHeight(120)
+            chart.setMinimumHeight(95)
+            chart.setMaximumHeight(125)
             charts.addWidget(chart)
         layout.addLayout(charts)
         self.tabs = QTabWidget()
+        self.tabs.setUsesScrollButtons(True)
+        self.tabs.setMinimumHeight(430)
         layout.addWidget(self.tabs, 1)
         self.make_recommendations()
         self.make_inspection()
@@ -81,7 +98,30 @@ class NetworkCenter(QWidget):
         return layout
 
     def make_recommendations(self):
-        layout = self.tab('Recommendations')
+        layout = self.tab('Diagnostics / advice')
+        controls = QHBoxLayout()
+        self.window_seconds, self.minimum_samples = QSpinBox(), QSpinBox()
+        self.window_seconds.setRange(10, 3600)
+        self.minimum_samples.setRange(3, 1000)
+        self.window_seconds.setValue(self.monitor.config.window_seconds)
+        self.minimum_samples.setValue(self.monitor.config.min_samples)
+        self.minimum_samples.setToolTip('Spike analysis needs this many prior baseline replies, then this many aligned evaluable rounds. Short windows can remain insufficient.')
+        self.probe_targets = QLineEdit(', '.join(self.monitor.config.external_targets))
+        self.probe_targets.setToolTip('2-5 distinct IPv4 targets; configuration changes reset evidence')
+        controls.addWidget(self.label('Window (s)'))
+        controls.addWidget(self.window_seconds)
+        controls.addWidget(self.label('Min samples'))
+        controls.addWidget(self.minimum_samples)
+        controls.addWidget(self.probe_targets, 1)
+        controls.addWidget(self.button('Apply measurement config', self.configure_diagnostics))
+        layout.addLayout(controls)
+        self.diagnostic_status = self.label('Collecting evidence. ICMP nonresponses do not confirm application packet loss.', 'muted')
+        layout.addWidget(self.diagnostic_status)
+        self.diagnostic_table = self.table(['Target', 'Replies / attempts', 'P50 ms', 'P95 ms', 'P99 ms', 'Max ms', 'Jitter mean |dRTT| ms', 'ICMP unanswered %'])
+        self.diagnostic_table.setMinimumHeight(155)
+        layout.addWidget(self.diagnostic_table)
+        self.diagnostic_details = self.label('Jitter: mean absolute adjacent RTT difference; gaps break pairs. P99 under 100 replies is unstable.', 'muted')
+        layout.addWidget(self.diagnostic_details)
         self.area = QScrollArea(); self.area.setWidgetResizable(True)
         self.card_widget = QWidget(); self.card_layout = QVBoxLayout(self.card_widget)
         self.area.setWidget(self.card_widget); layout.addWidget(self.area)
@@ -113,7 +153,7 @@ class NetworkCenter(QWidget):
 
     def make_benchmarks(self):
         layout = self.tab('Benchmarks')
-        layout.addWidget(self.label('Bounded HTTPS throughput, configured DNS lookup, idle / loaded ICMP latency, jitter and loss. Up to 48 MiB download + 12 MiB synthetic upload, plus protocol overhead. Bulk tests can interfere with gaming and trading: run outside critical sessions. Fast links may finish too quickly for useful loaded-latency evidence.', 'muted'))
+        layout.addWidget(self.label('Bounded HTTPS throughput, configured DNS lookup, idle / loaded ICMP latency, jitter and ICMP nonresponses. Up to 48 MiB download + 12 MiB synthetic upload, plus protocol overhead. Bulk tests can interfere with gaming and trading: run outside critical sessions. Fast links may finish too quickly for useful loaded-latency evidence.', 'muted'))
         self.conditions = QLineEdit()
         self.conditions.setPlaceholderText('Comparison conditions: location, AC/battery, VPN, router, background workload…')
         layout.addWidget(self.conditions)
@@ -141,6 +181,8 @@ class NetworkCenter(QWidget):
         layout.addLayout(row)
         self.compare_status = self.label('Match adapter, driver, route, Wi-Fi channel, signal, DNS, test parameters and declared workload. Internet conditions remain uncontrolled.', 'muted')
         layout.addWidget(self.compare_status)
+        self.medium_comparison = QCheckBox('Compare Wi-Fi versus Ethernet (manual connection switch; observational only)')
+        layout.addWidget(self.medium_comparison)
         self.compare_table = self.table(['Metric', 'Before', 'After', 'Difference', 'Evidence'])
         layout.addWidget(self.compare_table, 1)
         row = QHBoxLayout()
@@ -150,6 +192,11 @@ class NetworkCenter(QWidget):
         self.history_details = QTextEdit(); self.history_details.setReadOnly(True)
         self.history_details.setMaximumHeight(180)
         layout.addWidget(self.history_details)
+        events = QHBoxLayout()
+        self.events = QComboBox()
+        events.addWidget(self.events, 1)
+        events.addWidget(self.button('Inspect diagnostic event', self.inspect_event))
+        layout.addLayout(events)
         self.refresh_history()
 
     def make_drivers(self):
@@ -285,11 +332,20 @@ class NetworkCenter(QWidget):
             for chart in (self.gateway_chart, self.external_chart, self.loss_chart):
                 chart.values.clear()
         self.snapshot['route'] = result.get('route')
-        self.route_label.setText(f"OS IPv4 route → {result.get('routed_adapter') or 'unavailable / rescan inventory'} → gateway {result['targets']['gateway'] or 'unavailable'} → 1.1.1.1 · updated {result['captured_at']}")
+        self.route_label.setText(f"OS IPv4 route → {result.get('routed_adapter') or 'unavailable / rescan inventory'} → gateway {result['targets']['gateway'] or 'unavailable'} → {', '.join(result['config']['external_targets'])} · updated {result['captured_at']}")
         for key, title in (('gateway', 'Gateway'), ('external', 'External')):
             s = result[key]
             self.metrics[title][0].setText(fmt(s.get('latency_ms'), ' ms'))
             self.metrics[title][1].setText(f"{result['targets'][key] or 'No IPv4 gateway'} · rolling {s['sent']} probes\nJitter {fmt(s.get('jitter_ms'), ' ms')} · unanswered {fmt(s.get('loss_percent'), '%')}")
+        d = result['diagnostic']
+        self.diagnostic_status.setText(f"{d['fault'].replace('_', ' ').title()} | confidence {d['confidence']} | {d['aligned_rounds']} aligned evaluable rounds | {d['shared_spikes']} shared / {d['external_only_spikes']} external-only spikes")
+        fill(self.diagnostic_table, [[t, f"{v['received']} / {v['sent']}", *[fmt(v[k]) for k in
+            ('p50_ms', 'p95_ms', 'p99_ms', 'max_ms', 'jitter_ms', 'nonresponse_percent')]]
+            for t, v in d['statistics'].items()])
+        self.diagnostic_details.setText(d['recommendation'] + '\nAlternatives: ' + '; '.join(d['alternatives']) +
+            f"\nSignal quality / gateway RTT Pearson r: {fmt(d['signal']['pearson_r'])} ({d['signal']['pairs']} pairs). Correlation does not establish causation. " +
+            'Jitter = mean absolute consecutive RTT difference; gaps break pairs. P99 under 100 replies is unstable. ' +
+            f"Provider errors (excluded from ICMP attempts): {sum(v['provider_errors'] for v in d['statistics'].values())}. " + d['limitations'])
         self.gateway_chart.add(result['current'].get('gateway'))
         self.external_chart.add(result['current'].get('external'))
         self.loss_chart.add(result['external'].get('loss_percent'))
@@ -412,6 +468,33 @@ class NetworkCenter(QWidget):
             index = widget.findData(previous)
             widget.setCurrentIndex(index if index >= 0 else (widget.count() - 1 if widget is self.current else 0))
 
+        if hasattr(self, 'events'):
+            previous = self.events.currentData()
+            self.events.clear()
+            for event in self.host.store.diagnostic_events():
+                self.events.addItem(f"#{event['id']} | {event['created']} | {event['payload']['diagnostic']['fault']}", event['id'])
+            self.events.setCurrentIndex(max(0, self.events.findData(previous)))
+
+    def inspect_event(self):
+        event = next((e for e in self.host.store.diagnostic_events() if e['id'] == self.events.currentData()), None)
+        self.history_details.setPlainText(json.dumps(event, indent=2) if event else 'No diagnostic events saved yet.')
+
+    def configure_diagnostics(self):
+        if self.sample_busy:
+            self.diagnostic_status.setText('Wait for the active probe round before applying configuration.')
+            return
+        try:
+            config = network.DiagnosticConfig(window_seconds=self.window_seconds.value(),
+                min_samples=self.minimum_samples.value(),
+                external_targets=tuple(t.strip() for t in self.probe_targets.text().split(',')))
+            self.monitor.configure(config)
+            self.observation = {}
+            for chart in (self.gateway_chart, self.external_chart, self.loss_chart):
+                chart.values.clear()
+            self.diagnostic_status.setText('Configuration saved. Evidence window reset; collecting fresh samples.')
+        except ValueError as exc:
+            self.diagnostic_status.setText(str(exc))
+
     def inspect_saved(self):
         r = next((r for r in self.host.store.runs() if r['id'] == self.saved.currentData()), None)
         self.history_details.setPlainText(json.dumps(r, indent=2) if r else 'No saved selection.')
@@ -423,7 +506,7 @@ class NetworkCenter(QWidget):
         if not a or not b:
             self.compare_status.setText('Save two network benchmarks before comparing.')
             return
-        result = network.compare_network(a, b)
+        result = network.compare_network(a, b, medium_comparison=self.medium_comparison.isChecked())
         self.compare_status.setText(('Comparable recorded conditions. ' if result['comparable'] else 'Not comparable: ' + '; '.join(result['reasons']) + '. ') + result['conclusion'])
         fill(self.compare_table, [[v['metric'], fmt(v['before']), fmt(v['after']), fmt(v['delta']), v['status']] for v in result['results']])
 
