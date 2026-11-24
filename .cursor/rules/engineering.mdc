@@ -1,0 +1,6 @@
+---
+description: Shared engineering workflow for this repository
+alwaysApply: true
+---
+
+Read and follow the canonical shared instructions in @Engineering/ENGINEERING.md before engineering work. Preserve and follow applicable repository-specific instructions too. Open the file if its content has not been loaded. Reusable task procedures are discoverable under `.agents/skills/`.
