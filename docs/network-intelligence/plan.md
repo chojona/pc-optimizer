@@ -13,7 +13,8 @@
   modifications are preserved. Open PRs #5–#8 change only CI/release workflows.
 
 1. Agree and publish contract.md on #10, then commit it separately before engine
-   implementation. Coordinate that commit with UI/AI consumers. Approval pending.
+   implementation. Approved, posted on issue #10, and committed as `9c244a5`.
+   Consumers can review the agreed issue comment; branch publication is pending.
 2. Add bounded validators and a pure existing-event adapter inside the package.
 3. Reuse diagnostics statistics and correlation; explain insufficient/stale,
    provider failures, route instability, missing probes and signal uncertainty.
@@ -34,3 +35,8 @@ at Program Files; elevated execution accesses its valid credentials. Successful
 CLI stderr event hints were separated from JSON stdout using a process-local
 wrapper, preserving nonzero errors; shared scripts were not changed. Git safety
 exception was process-local only. No dependencies or global config changed.
+
+Implementation adds only the new package, its tests and documentation. Existing
+diagnostics/network/WLAN modules remain unchanged: compatibility is achieved by
+reusing the statistical entrypoint and existing event format without importing
+providers. A new UI task #11 now also has an active nonoverlapping claim.

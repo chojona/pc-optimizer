@@ -1,0 +1,1958 @@
+[
+  {
+    "name": "normal",
+    "snapshot": {
+      "schema_version": 1,
+      "captured_at": "2026-11-24T23:00:30+00:00",
+      "as_of": "2026-11-24T23:00:30+00:00",
+      "stable_path": true,
+      "config": {
+        "window_seconds": 120,
+        "min_samples": 5,
+        "external_targets": [
+          "1.1.1.1",
+          "8.8.8.8",
+          "9.9.9.9"
+        ],
+        "alignment_seconds": 0.15,
+        "spike_floor_ms": 10.0,
+        "min_spikes": 3
+      },
+      "rounds": [
+        {
+          "captured_at": "2026-11-24T23:00:00+00:00",
+          "at": 100.0,
+          "signal_percent": 80.0,
+          "signal_at": 100.0,
+          "probes": {
+            "gateway": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:02+00:00",
+          "at": 102.0,
+          "signal_percent": 79.0,
+          "signal_at": 102.0,
+          "probes": {
+            "gateway": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:04+00:00",
+          "at": 104.0,
+          "signal_percent": 78.0,
+          "signal_at": 104.0,
+          "probes": {
+            "gateway": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:06+00:00",
+          "at": 106.0,
+          "signal_percent": 77.0,
+          "signal_at": 106.0,
+          "probes": {
+            "gateway": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:08+00:00",
+          "at": 108.0,
+          "signal_percent": 76.0,
+          "signal_at": 108.0,
+          "probes": {
+            "gateway": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:10+00:00",
+          "at": 110.0,
+          "signal_percent": 75.0,
+          "signal_at": 110.0,
+          "probes": {
+            "gateway": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:12+00:00",
+          "at": 112.0,
+          "signal_percent": 74.0,
+          "signal_at": 112.0,
+          "probes": {
+            "gateway": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:14+00:00",
+          "at": 114.0,
+          "signal_percent": 73.0,
+          "signal_at": 114.0,
+          "probes": {
+            "gateway": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:16+00:00",
+          "at": 116.0,
+          "signal_percent": 72.0,
+          "signal_at": 116.0,
+          "probes": {
+            "gateway": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:18+00:00",
+          "at": 118.0,
+          "signal_percent": 71.0,
+          "signal_at": 118.0,
+          "probes": {
+            "gateway": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:20+00:00",
+          "at": 120.0,
+          "signal_percent": 70.0,
+          "signal_at": 120.0,
+          "probes": {
+            "gateway": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:22+00:00",
+          "at": 122.0,
+          "signal_percent": 69.0,
+          "signal_at": 122.0,
+          "probes": {
+            "gateway": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:24+00:00",
+          "at": 124.0,
+          "signal_percent": 68.0,
+          "signal_at": 124.0,
+          "probes": {
+            "gateway": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:26+00:00",
+          "at": 126.0,
+          "signal_percent": 67.0,
+          "signal_at": 126.0,
+          "probes": {
+            "gateway": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:28+00:00",
+          "at": 128.0,
+          "signal_percent": 66.0,
+          "signal_at": 128.0,
+          "probes": {
+            "gateway": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:30+00:00",
+          "at": 130.0,
+          "signal_percent": 65.0,
+          "signal_at": 130.0,
+          "probes": {
+            "gateway": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        }
+      ]
+    },
+    "expected_state": "ok",
+    "expected_finding": "network.no_repeated_spikes"
+  },
+  {
+    "name": "shared",
+    "snapshot": {
+      "schema_version": 1,
+      "captured_at": "2026-11-24T23:01:18+00:00",
+      "as_of": "2026-11-24T23:01:18+00:00",
+      "stable_path": true,
+      "config": {
+        "window_seconds": 120,
+        "min_samples": 5,
+        "external_targets": [
+          "1.1.1.1",
+          "8.8.8.8",
+          "9.9.9.9"
+        ],
+        "alignment_seconds": 0.15,
+        "spike_floor_ms": 10.0,
+        "min_spikes": 3
+      },
+      "rounds": [
+        {
+          "captured_at": "2026-11-24T23:00:00+00:00",
+          "at": 100.0,
+          "signal_percent": 80.0,
+          "signal_at": 100.0,
+          "probes": {
+            "gateway": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:02+00:00",
+          "at": 102.0,
+          "signal_percent": 79.0,
+          "signal_at": 102.0,
+          "probes": {
+            "gateway": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 102.0,
+              "end": 102.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:04+00:00",
+          "at": 104.0,
+          "signal_percent": 78.0,
+          "signal_at": 104.0,
+          "probes": {
+            "gateway": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 104.0,
+              "end": 104.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:06+00:00",
+          "at": 106.0,
+          "signal_percent": 77.0,
+          "signal_at": 106.0,
+          "probes": {
+            "gateway": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 106.0,
+              "end": 106.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:08+00:00",
+          "at": 108.0,
+          "signal_percent": 76.0,
+          "signal_at": 108.0,
+          "probes": {
+            "gateway": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 108.0,
+              "end": 108.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:10+00:00",
+          "at": 110.0,
+          "signal_percent": 75.0,
+          "signal_at": 110.0,
+          "probes": {
+            "gateway": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 110.0,
+              "end": 110.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:12+00:00",
+          "at": 112.0,
+          "signal_percent": 74.0,
+          "signal_at": 112.0,
+          "probes": {
+            "gateway": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 112.0,
+              "end": 112.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:14+00:00",
+          "at": 114.0,
+          "signal_percent": 73.0,
+          "signal_at": 114.0,
+          "probes": {
+            "gateway": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 114.0,
+              "end": 114.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:16+00:00",
+          "at": 116.0,
+          "signal_percent": 72.0,
+          "signal_at": 116.0,
+          "probes": {
+            "gateway": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 116.0,
+              "end": 116.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:18+00:00",
+          "at": 118.0,
+          "signal_percent": 71.0,
+          "signal_at": 118.0,
+          "probes": {
+            "gateway": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 118.0,
+              "end": 118.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:20+00:00",
+          "at": 120.0,
+          "signal_percent": 70.0,
+          "signal_at": 120.0,
+          "probes": {
+            "gateway": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 120.0,
+              "end": 120.1,
+              "ms": 100.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:22+00:00",
+          "at": 122.0,
+          "signal_percent": 69.0,
+          "signal_at": 122.0,
+          "probes": {
+            "gateway": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 122.0,
+              "end": 122.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:24+00:00",
+          "at": 124.0,
+          "signal_percent": 68.0,
+          "signal_at": 124.0,
+          "probes": {
+            "gateway": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 124.0,
+              "end": 124.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:26+00:00",
+          "at": 126.0,
+          "signal_percent": 67.0,
+          "signal_at": 126.0,
+          "probes": {
+            "gateway": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 126.0,
+              "end": 126.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:28+00:00",
+          "at": 128.0,
+          "signal_percent": 66.0,
+          "signal_at": 128.0,
+          "probes": {
+            "gateway": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 128.0,
+              "end": 128.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:30+00:00",
+          "at": 130.0,
+          "signal_percent": 65.0,
+          "signal_at": 130.0,
+          "probes": {
+            "gateway": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 130.0,
+              "end": 130.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:32+00:00",
+          "at": 132.0,
+          "signal_percent": 64.0,
+          "signal_at": 132.0,
+          "probes": {
+            "gateway": {
+              "start": 132.0,
+              "end": 132.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 132.0,
+              "end": 132.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 132.0,
+              "end": 132.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 132.0,
+              "end": 132.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:34+00:00",
+          "at": 134.0,
+          "signal_percent": 63.0,
+          "signal_at": 134.0,
+          "probes": {
+            "gateway": {
+              "start": 134.0,
+              "end": 134.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 134.0,
+              "end": 134.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 134.0,
+              "end": 134.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 134.0,
+              "end": 134.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:36+00:00",
+          "at": 136.0,
+          "signal_percent": 62.0,
+          "signal_at": 136.0,
+          "probes": {
+            "gateway": {
+              "start": 136.0,
+              "end": 136.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 136.0,
+              "end": 136.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 136.0,
+              "end": 136.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 136.0,
+              "end": 136.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:38+00:00",
+          "at": 138.0,
+          "signal_percent": 61.0,
+          "signal_at": 138.0,
+          "probes": {
+            "gateway": {
+              "start": 138.0,
+              "end": 138.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 138.0,
+              "end": 138.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 138.0,
+              "end": 138.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 138.0,
+              "end": 138.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:40+00:00",
+          "at": 140.0,
+          "signal_percent": 60.0,
+          "signal_at": 140.0,
+          "probes": {
+            "gateway": {
+              "start": 140.0,
+              "end": 140.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 140.0,
+              "end": 140.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 140.0,
+              "end": 140.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 140.0,
+              "end": 140.1,
+              "ms": 100.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:42+00:00",
+          "at": 142.0,
+          "signal_percent": 59.0,
+          "signal_at": 142.0,
+          "probes": {
+            "gateway": {
+              "start": 142.0,
+              "end": 142.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 142.0,
+              "end": 142.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 142.0,
+              "end": 142.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 142.0,
+              "end": 142.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:44+00:00",
+          "at": 144.0,
+          "signal_percent": 58.0,
+          "signal_at": 144.0,
+          "probes": {
+            "gateway": {
+              "start": 144.0,
+              "end": 144.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 144.0,
+              "end": 144.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 144.0,
+              "end": 144.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 144.0,
+              "end": 144.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:46+00:00",
+          "at": 146.0,
+          "signal_percent": 57.0,
+          "signal_at": 146.0,
+          "probes": {
+            "gateway": {
+              "start": 146.0,
+              "end": 146.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 146.0,
+              "end": 146.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 146.0,
+              "end": 146.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 146.0,
+              "end": 146.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:48+00:00",
+          "at": 148.0,
+          "signal_percent": 56.0,
+          "signal_at": 148.0,
+          "probes": {
+            "gateway": {
+              "start": 148.0,
+              "end": 148.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 148.0,
+              "end": 148.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 148.0,
+              "end": 148.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 148.0,
+              "end": 148.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:50+00:00",
+          "at": 150.0,
+          "signal_percent": 55.0,
+          "signal_at": 150.0,
+          "probes": {
+            "gateway": {
+              "start": 150.0,
+              "end": 150.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 150.0,
+              "end": 150.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 150.0,
+              "end": 150.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 150.0,
+              "end": 150.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:52+00:00",
+          "at": 152.0,
+          "signal_percent": 54.0,
+          "signal_at": 152.0,
+          "probes": {
+            "gateway": {
+              "start": 152.0,
+              "end": 152.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 152.0,
+              "end": 152.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 152.0,
+              "end": 152.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 152.0,
+              "end": 152.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:54+00:00",
+          "at": 154.0,
+          "signal_percent": 53.0,
+          "signal_at": 154.0,
+          "probes": {
+            "gateway": {
+              "start": 154.0,
+              "end": 154.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 154.0,
+              "end": 154.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 154.0,
+              "end": 154.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 154.0,
+              "end": 154.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:56+00:00",
+          "at": 156.0,
+          "signal_percent": 52.0,
+          "signal_at": 156.0,
+          "probes": {
+            "gateway": {
+              "start": 156.0,
+              "end": 156.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 156.0,
+              "end": 156.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 156.0,
+              "end": 156.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 156.0,
+              "end": 156.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:00:58+00:00",
+          "at": 158.0,
+          "signal_percent": 51.0,
+          "signal_at": 158.0,
+          "probes": {
+            "gateway": {
+              "start": 158.0,
+              "end": 158.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 158.0,
+              "end": 158.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 158.0,
+              "end": 158.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 158.0,
+              "end": 158.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:00+00:00",
+          "at": 160.0,
+          "signal_percent": 50.0,
+          "signal_at": 160.0,
+          "probes": {
+            "gateway": {
+              "start": 160.0,
+              "end": 160.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 160.0,
+              "end": 160.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 160.0,
+              "end": 160.1,
+              "ms": 100.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 160.0,
+              "end": 160.1,
+              "ms": 100.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:02+00:00",
+          "at": 162.0,
+          "signal_percent": 49.0,
+          "signal_at": 162.0,
+          "probes": {
+            "gateway": {
+              "start": 162.0,
+              "end": 162.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 162.0,
+              "end": 162.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 162.0,
+              "end": 162.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 162.0,
+              "end": 162.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:04+00:00",
+          "at": 164.0,
+          "signal_percent": 48.0,
+          "signal_at": 164.0,
+          "probes": {
+            "gateway": {
+              "start": 164.0,
+              "end": 164.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 164.0,
+              "end": 164.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 164.0,
+              "end": 164.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 164.0,
+              "end": 164.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:06+00:00",
+          "at": 166.0,
+          "signal_percent": 47.0,
+          "signal_at": 166.0,
+          "probes": {
+            "gateway": {
+              "start": 166.0,
+              "end": 166.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 166.0,
+              "end": 166.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 166.0,
+              "end": 166.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 166.0,
+              "end": 166.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:08+00:00",
+          "at": 168.0,
+          "signal_percent": 46.0,
+          "signal_at": 168.0,
+          "probes": {
+            "gateway": {
+              "start": 168.0,
+              "end": 168.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 168.0,
+              "end": 168.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 168.0,
+              "end": 168.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 168.0,
+              "end": 168.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:10+00:00",
+          "at": 170.0,
+          "signal_percent": 45.0,
+          "signal_at": 170.0,
+          "probes": {
+            "gateway": {
+              "start": 170.0,
+              "end": 170.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 170.0,
+              "end": 170.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 170.0,
+              "end": 170.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 170.0,
+              "end": 170.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:12+00:00",
+          "at": 172.0,
+          "signal_percent": 44.0,
+          "signal_at": 172.0,
+          "probes": {
+            "gateway": {
+              "start": 172.0,
+              "end": 172.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 172.0,
+              "end": 172.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 172.0,
+              "end": 172.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 172.0,
+              "end": 172.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:14+00:00",
+          "at": 174.0,
+          "signal_percent": 43.0,
+          "signal_at": 174.0,
+          "probes": {
+            "gateway": {
+              "start": 174.0,
+              "end": 174.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 174.0,
+              "end": 174.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 174.0,
+              "end": 174.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 174.0,
+              "end": 174.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:16+00:00",
+          "at": 176.0,
+          "signal_percent": 42.0,
+          "signal_at": 176.0,
+          "probes": {
+            "gateway": {
+              "start": 176.0,
+              "end": 176.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 176.0,
+              "end": 176.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 176.0,
+              "end": 176.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 176.0,
+              "end": 176.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        },
+        {
+          "captured_at": "2026-11-24T23:01:18+00:00",
+          "at": 178.0,
+          "signal_percent": 41.0,
+          "signal_at": 178.0,
+          "probes": {
+            "gateway": {
+              "start": 178.0,
+              "end": 178.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 178.0,
+              "end": 178.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 178.0,
+              "end": 178.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 178.0,
+              "end": 178.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        }
+      ]
+    },
+    "expected_state": "ok",
+    "expected_finding": "network.shared_path_suspected"
+  },
+  {
+    "name": "sparse",
+    "snapshot": {
+      "schema_version": 1,
+      "captured_at": "2026-11-24T23:00:00+00:00",
+      "as_of": "2026-11-24T23:00:00+00:00",
+      "stable_path": true,
+      "config": {
+        "window_seconds": 120,
+        "min_samples": 5,
+        "external_targets": [
+          "1.1.1.1",
+          "8.8.8.8",
+          "9.9.9.9"
+        ],
+        "alignment_seconds": 0.15,
+        "spike_floor_ms": 10.0,
+        "min_spikes": 3
+      },
+      "rounds": [
+        {
+          "captured_at": "2026-11-24T23:00:00+00:00",
+          "at": 100.0,
+          "signal_percent": 80.0,
+          "signal_at": 100.0,
+          "probes": {
+            "gateway": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "1.1.1.1": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        }
+      ]
+    },
+    "expected_state": "insufficient",
+    "expected_finding": "network.insufficient_evidence"
+  },
+  {
+    "name": "provider-error",
+    "snapshot": {
+      "schema_version": 1,
+      "captured_at": "2026-11-24T23:00:00+00:00",
+      "as_of": "2026-11-24T23:00:00+00:00",
+      "stable_path": true,
+      "config": {
+        "window_seconds": 120,
+        "min_samples": 5,
+        "external_targets": [
+          "1.1.1.1",
+          "8.8.8.8",
+          "9.9.9.9"
+        ],
+        "alignment_seconds": 0.15,
+        "spike_floor_ms": 10.0,
+        "min_spikes": 3
+      },
+      "rounds": [
+        {
+          "captured_at": "2026-11-24T23:00:00+00:00",
+          "at": 100.0,
+          "signal_percent": 80.0,
+          "signal_at": 100.0,
+          "probes": {
+            "gateway": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": null,
+              "error": "synthetic unavailable"
+            },
+            "1.1.1.1": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "8.8.8.8": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            },
+            "9.9.9.9": {
+              "start": 100.0,
+              "end": 100.1,
+              "ms": 10.0,
+              "error": null
+            }
+          }
+        }
+      ]
+    },
+    "expected_state": "insufficient",
+    "expected_finding": "network.provider_errors"
+  }
+]

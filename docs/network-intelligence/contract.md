@@ -1,7 +1,9 @@
-# Network Intelligence v1 contract (proposed)
+# Network Intelligence v1 contract
 
 Owner: issue #10, `codex-20261124-network-01`. Consumers: #11 (UI), #12 (AI).
-This proposal must be agreed before engine implementation or consumer integration.
+Approved by the user before implementation and published on issue #10:
+https://github.com/chojona/pc-optimizer/issues/10#issuecomment-7147014782.
+The focused contract commit is `9c244a5ef8322410fe37d96ca671d65cf72f992b`.
 
 ## Public API
 
