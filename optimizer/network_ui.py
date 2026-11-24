@@ -1,9 +1,9 @@
 """Network Center composed from the application's existing widgets and worker pool."""
 from copy import deepcopy
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame,
-    QComboBox, QTabWidget, QLineEdit, QScrollArea, QSpinBox, QCheckBox)
+    QComboBox, QTabWidget, QLineEdit, QScrollArea, QSpinBox, QCheckBox, QSizePolicy)
 
 from . import network
 from .readable import explain_result, readable_label
@@ -26,21 +26,12 @@ class NetworkCenter(QWidget):
         except (ValueError, TypeError):
             config = network.DiagnosticConfig()
         self.monitor = network.NetworkMonitor(host.store, config)
-        self.setStyleSheet("""
-            QTabWidget::pane { border:1px solid #35465f; background:#111c2c; }
-            QTabBar::tab { background:#1b2a40; color:#cfdbec; padding:10px 12px;
-                          border:1px solid #3b4c66; margin-right:2px; }
-            QTabBar::tab:selected { background:#285447; color:#fff; border-bottom:3px solid #75ebc7; }
-            QTabBar::tab:hover { background:#304963; color:#fff; }
-            QSpinBox { background:#192438; color:#e5efff; padding:6px; border:1px solid #52657e; }
-            QLabel#metric { font-size:23px; }
-            QLabel#muted { color:#b4c3d8; }
-        """)
         self.actions = network.NetworkActions(host.store)
         self.scan_busy = self.sample_busy = self.driver_busy = self.survey_busy = False
         self.closed = False
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(label('Wi-Fi & Network Center', 'title'))
         layout.addWidget(label('Latency • stability • measured evidence • explicit approval for every setting change', 'muted'))
         row = QHBoxLayout()
@@ -58,11 +49,16 @@ class NetworkCenter(QWidget):
         for i, key in enumerate(('Gateway', 'External', 'Radio', 'Throughput')):
             card = QFrame(); card.setObjectName('card')
             box = QVBoxLayout(card)
+            box.setContentsMargins(16, 16, 16, 16)
+            box.setSpacing(10)
             box.addWidget(label(key, 'muted'))
-            value, detail = label('Waiting…', 'metric'), label('No samples yet', 'muted')
-            box.addWidget(value); box.addWidget(detail)
+            value, detail = label('Waiting…', 'metricCompact' if key == 'Throughput' else 'metric'), label('No samples yet', 'muted')
+            value.setFixedHeight(38)
+            detail.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            box.addWidget(value); box.addWidget(detail, 1)
             self.metrics[key] = value, detail
             grid.addWidget(card, 0, i)
+            grid.setColumnStretch(i, 1)
         layout.addLayout(grid)
         charts = QHBoxLayout()
         self.gateway_chart = Chart('Gateway · ICMP ms', '#6ee7c7', None)
@@ -74,8 +70,13 @@ class NetworkCenter(QWidget):
             charts.addWidget(chart)
         layout.addLayout(charts)
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
         self.tabs.setUsesScrollButtons(True)
-        self.tabs.setMinimumHeight(430)
+        self.tabs.setElideMode(Qt.TextElideMode.ElideNone)
+        self.tabs.tabBar().setExpanding(False)
+        # Let the outer page scroll rather than squeezing the tab contents.
+        self.tabs.setMinimumHeight(380)
+        self.tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         layout.addWidget(self.tabs, 1)
         self.make_recommendations()
         self.make_inspection()
@@ -93,9 +94,16 @@ class NetworkCenter(QWidget):
         QTimer.singleShot(800, lambda: self.refresh(save=False) if not self.closed else None)
 
     def tab(self, title):
+        # Each tab scrolls independently when its controls need more room.
+        area = QScrollArea()
+        area.setWidgetResizable(True)
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        self.tabs.addTab(widget, title)
+        layout.setContentsMargins(16, 18, 16, 16)
+        layout.setSpacing(12)
+        area.setWidget(widget)
+        self.tabs.addTab(area, title)
+        self.tabs.setTabToolTip(self.tabs.count() - 1, title)
         return layout
 
     def make_recommendations(self):
@@ -125,11 +133,13 @@ class NetworkCenter(QWidget):
         layout.addWidget(self.diagnostic_details)
         self.area = QScrollArea(); self.area.setWidgetResizable(True)
         self.card_widget = QWidget(); self.card_layout = QVBoxLayout(self.card_widget)
+        self.card_layout.setContentsMargins(0, 0, 8, 0)
+        self.card_layout.setSpacing(12)
         self.area.setWidget(self.card_widget); layout.addWidget(self.area)
         self.draw_recommendations()
 
     def make_inspection(self):
-        layout = self.tab('Adapter / processes')
+        layout = self.tab('Adapter details')
         self.adapter_text = self.label('Detecting adapters…', 'muted')
         layout.addWidget(self.adapter_text)
         self.properties = self.table(['Property', 'Configured value', 'Capability / meaning'])
@@ -172,7 +182,7 @@ class NetworkCenter(QWidget):
         layout.addWidget(self.bloat_status)
 
     def make_history(self):
-        layout = self.tab('History / comparison')
+        layout = self.tab('History / compare')
         row = QHBoxLayout()
         self.baseline, self.current = QComboBox(), QComboBox()
         row.addWidget(self.label('Before')); row.addWidget(self.baseline, 1)
@@ -375,7 +385,9 @@ class NetworkCenter(QWidget):
         for r in network.recommendations(self.snapshot, self.observation, self.latest_benchmark):
             card = QFrame(); card.setObjectName('card')
             layout = QVBoxLayout(card)
-            layout.addWidget(self.label(r['title'] + '  ·  ' + r['risk'] + ' risk'))
+            layout.setContentsMargins(16, 16, 16, 16)
+            layout.setSpacing(10)
+            layout.addWidget(self.label(r['title'] + '  ·  ' + r['risk'] + ' risk', 'section'))
             layout.addWidget(self.label(r['evidence'], 'muted'))
             layout.addWidget(self.label('Expected benefit: ' + r['expected_benefit']))
             layout.addWidget(self.label(r['verification'], 'muted'))

@@ -5,8 +5,9 @@ from pathlib import Path
 
 def main():
     from PySide6.QtWidgets import QApplication
-    from optimizer.ui import MainWindow
+    from optimizer.ui import MainWindow, configure_theme
     app=QApplication(sys.argv)
+    configure_theme(app)
     app.setApplicationName('PC Optimizer')
     app.setOrganizationName('Local Workstation')
     window=MainWindow()
