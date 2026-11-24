@@ -52,10 +52,17 @@ try {
     $trees = @(Get-Worktrees $context.Root)
     $status = foreach ($tree in $trees) {
         $claim = @($registry.Values | Where-Object { (Test-SamePath $_.path $tree.Path) -and $_.status -ne 'released' })
-        $dirty = $null; $inspectionError = $null
+        $dirty = $null; $inspectionError = $null; $protocol = $null
         try { $dirty = [bool](Invoke-Git $tree.Path @('status','--porcelain')) }
         catch { $inspectionError = $_.Exception.Message }
-        [pscustomobject]@{ path=$tree.Path; branch=$tree.Branch; head=$tree.Head; dirty=$dirty; inspectionError=$inspectionError; managed=($claim.Count -gt 0); task=$claim }
+        # Report the end-of-session protocol for claimed trees. Unknown state is never shown as complete.
+        if ($claim.Count -eq 1 -and -not $inspectionError) {
+            try {
+                $state = Get-SessionProtocol $tree.Path $claim[0] $claim[0].branch $claim[0].baseCommit
+                $protocol = [pscustomobject]@{ satisfied=$state.satisfied; pendingSteps=$state.pendingSteps; repositoryChanges=$state.repositoryChanges; testStatus=$state.testStatus; pullRequest=$state.pullRequest; pullRequestDraft=$state.pullRequestDraft }
+            } catch { $protocol = [pscustomobject]@{ satisfied=$null; inspectionError=$_.Exception.Message } }
+        }
+        [pscustomobject]@{ path=$tree.Path; branch=$tree.Branch; head=$tree.Head; dirty=$dirty; inspectionError=$inspectionError; managed=($claim.Count -gt 0); task=$claim; sessionProtocol=$protocol }
     }
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     [ordered]@{ repository=$context.Root; state=$context.State; gitVersion=(Invoke-Tool git @('--version')); githubCliAvailable=[bool]$gh; githubAuthentication='Not checked; run gh auth status'; worktrees=@($status); tasks=@($registry.Values); dryRun=[bool]$DryRun } | ConvertTo-Json -Depth 15

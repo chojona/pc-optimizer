@@ -64,6 +64,21 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  engineering-workflow:
+    name: Engineering workflow and session protocol
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Run workflow isolation and ownership checks
+        run: pwsh -NoProfile -File .\Engineering\tests\workflow.tests.ps1
+      - name: Run end-of-session protocol checks
+        run: pwsh -NoProfile -File .\Engineering\tests\session-protocol.tests.ps1
+      # Engineering/tests/github-contract.tests.ps1 is deliberately excluded: it builds a
+      # native CLI fixture with the Windows .NET Framework compiler and is run locally.
+
   package:
     name: Build and verify Windows source bundle
     needs: tests

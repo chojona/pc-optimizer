@@ -4,6 +4,18 @@ Use GitHub Issues to define work, one isolated Git worktree per implementation t
 
 Read [the shared engineering rules](ENGINEERING.md), [the architecture](ARCHITECTURE.md), and [the discovery report](DISCOVERY.md). The discovery report includes proposed global locations; none was installed.
 
+## Mandatory end-of-session protocol
+
+Every session that changes a repository must finish seven steps before it stops: review the complete diff, run the relevant checks and report their actual results, commit, push the task's own branch, create or update exactly one pull request, update the issue and Project board status, and hand off. Completed work whose checks pass is ready for review; unfinished work or failing checks publish a draft pull request documenting the blockers under a `## Blockers` heading. A session with no repository changes hands off and creates no pull request. The canonical definition, including the standing authorization it rests on and what it still does not authorize, is in [the shared engineering rules](ENGINEERING.md#end-every-session-with-the-mandatory-protocol).
+
+`finish-task.ps1` performs the protocol and records what it did. `end-session.ps1` validates it read-only and exits nonzero while any step is unrecorded:
+
+```powershell
+& "$scripts\end-session.ps1" -Repository $task -Issue 42 -Owner codex-parser-a
+```
+
+Git establishes the change, commit, and push facts. Review, test, publication, issue, and handoff steps are attestations recorded by `finish-task.ps1`, so a `pending` step means "not recorded here", not proof that the step was skipped — and never a reason to claim it was done. Editing the worktree after validation invalidates the review and test attestations for the new head, which the validator reports. No agent enforces the protocol automatically at session end; each one follows it from its instruction adapter, and anything the scripts could not verify belongs in the handoff. `-ReportOnly` prints the same report with exit code 0 for coordination use, and `agent-status.ps1` summarizes each claimed task's pending steps.
+
 ## Requirements and first use
 
 Use PowerShell 7 (`pwsh`) and Git for Windows. GitHub operations additionally require GitHub CLI (`gh`), an authenticated account, and the repository/project permissions needed for the requested operation. The workflow does not install dependencies, authenticate accounts, grant scopes, alter execution policy, or change Windows settings.
@@ -40,7 +52,7 @@ All paths below are relative to the repository root. The repository installation
 | `Engineering/skills/<skill>/SKILL.md` | Canonical skill procedure |
 | `.agents/skills/<skill>/SKILL.md` | Codex/Cursor discovery wrappers |
 | `.claude/skills/<skill>/SKILL.md` | Claude discovery wrappers |
-| `Engineering/scripts/` | PowerShell automation |
+| `Engineering/scripts/` | PowerShell automation, including `end-session.ps1` protocol validation |
 
 Global instruction and skill locations differ by agent. See the exact paths and preservation plan in [DISCOVERY.md](DISCOVERY.md#proposed-global-locations--not-installed). There is no assumed shared global `AGENTS.md` or `SKILL.md` convention.
 
@@ -55,6 +67,8 @@ Type these in the agent chat, not in PowerShell:
 | Measure performance | `$benchmark` | `/benchmark` | `/benchmark` |
 | Validate and publish | `$finish-task` | `/finish-task` | `/finish-task` |
 | Explain the implementation | `$learn` | `/learn` | `/learn` |
+
+Invoke the finish skill at the end of every session that changed the repository, including an unfinished one.
 
 Include issue/repository, a unique owner session, scope, and constraints with the request. For example: “`$start-task` for issue 42 in this repository; owner `codex-parser-a`; own `src/parser` and `tests/parser`; use `main` as base.” The skill still checks the issue's acceptance criteria and overlaps before implementation. Explicit invocation syntax and discovery sources are recorded in [DISCOVERY.md](DISCOVERY.md#verified-discovery-mechanisms).
 
@@ -117,7 +131,9 @@ $checks = Join-Path $task 'tests\run-checks.ps1' # Reviewed project-owned script
   -Files @('src/parser', 'tests/parser') -TestScript $checks -Offline
 ```
 
-After reviewing the actual unstaged/staged diff and acceptance evidence, explicitly authorize a commit. Supply `-Commit -Message 'Implement parser acceptance criteria'` to the same command. To publish, remove `-Offline` and supply `-Publish -Title 'Implement parser validation' -BodyFile 'C:\Temp\issue-42-pr.md'`; add `-Commit -Message ...` only if committing is also authorized. The reviewed body file should describe behavior, acceptance criteria, exact checks, limitations, and `Closes #42`. The script reuses an existing matching open PR and never merges it. Failed pushes/PR creation preserve the local branch and commits for a safe retry.
+After reviewing the actual unstaged/staged diff and acceptance evidence, commit with `-Commit -Message 'Implement parser acceptance criteria'`. To publish, remove `-Offline` and supply `-Publish -Title 'Implement parser validation' -BodyFile 'C:\Temp\issue-42-pr.md'` together with `-Commit -Message ...`. The reviewed body file should describe behavior, acceptance criteria, exact checks, limitations, and `Closes #42`. Add `-CommentIssue -HandoffFile 'C:\Temp\issue-42-handoff.md'` to update the issue, and `-UpdateProject` with verified IDs for the board. Record a genuinely unsupported update with `-SkipIssueUpdate` or `-SkipProjectUpdate` plus `-LimitationNote '<reason>'` instead of implying it happened.
+
+For unfinished work, add `-Draft`; for failing checks add `-AllowTestFailure` as well. A draft body must reference the issue without a closing keyword and list concrete blockers under a `## Blockers` heading, or the script refuses it. `-AllowTestFailure` records the real failure output as an evidence log and reports `testStatus: failed`; it never turns a failure into a pass. Without `-Publish` the failing work is still committed and the failure recorded, so an offline or unauthenticated session preserves it. The script updates the branch's existing open pull request, including its draft state, instead of creating a duplicate, publishes nothing for a session with no commits, and never merges. Failed pushes/PR creation preserve the local branch and commits for a safe retry.
 
 The skill's handoff includes the issue/PR, key files and functions, tests/results, interface changes, evidence for performance claims, educational notes, remaining risks, and the next reviewer action. The script's JSON output is an operation record, not a substitute for engineering review.
 
@@ -144,8 +160,11 @@ From the infrastructure worktree, use:
 
 ```powershell
 pwsh -NoProfile -File .\Engineering\tests\workflow.tests.ps1
+pwsh -NoProfile -File .\Engineering\tests\session-protocol.tests.ps1
 pwsh -NoProfile -File .\Engineering\tests\github-contract.tests.ps1
 ```
+
+The session-protocol suite covers completed, incomplete, interrupted, failed, and no-change sessions, stale review and test attestations, unmanaged worktrees, coordinator reporting, and whether every agent adapter and skill still exposes the protocol. The first two suites also run in this repository's CI; the contract suite stays local because it needs the Windows .NET Framework compiler.
 
 The suite uses temporary repositories to exercise isolation, ownership, failures, concurrent callers, dry runs, and cleanup. It does not require a live GitHub account or modify another project's repository. CLI simulations establish local error/coordination behavior; authenticated GitHub permissions and actual remote publication still need a deliberate integration check after `gh` is installed and authenticated. Preserve a failed test fixture for diagnosis when the suite reports its path.
 

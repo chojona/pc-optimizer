@@ -28,6 +28,8 @@ class GhFixture {
   static int Fail(string message, int code) { Console.Error.WriteLine(message); return code; }
   static int Main(string[] args) {
     string scenario = Environment.GetEnvironmentVariable("WORKFLOW_GITHUB_FIXTURE");
+    string log = Environment.GetEnvironmentVariable("WORKFLOW_GITHUB_LOG");
+    if (!String.IsNullOrEmpty(log)) System.IO.File.AppendAllText(log, String.Join(" ", args) + "\n");
     string verb = args.Length > 0 ? args[0] : "";
     string sub = args.Length > 1 ? args[1] : "";
     string endpoint = args.Length > 0 ? args[args.Length - 1] : "";
@@ -37,12 +39,15 @@ class GhFixture {
     }
     if (verb == "api" && endpoint.Contains("/pulls?")) {
       if (scenario == "renamed-overlap") Console.WriteLine("[[{\"number\":2,\"head\":{\"ref\":\"first\",\"repo\":{\"full_name\":\"example/fixture\"}}}],[{\"number\":3,\"head\":{\"ref\":\"second\",\"repo\":{\"full_name\":\"example/fixture\"}}}]]");
-      else if (scenario == "wrong-existing-body") Console.WriteLine("[[{\"number\":7,\"head\":{\"ref\":\"codex/issue-1-fixture\",\"repo\":{\"full_name\":\"example/fixture\"}},\"base\":{\"ref\":\"main\"},\"body\":\"Closes unrelated/project#1\",\"html_url\":\"https://github.com/example/fixture/pull/7\"}]]");
+      else if (scenario == "wrong-existing-body") Console.WriteLine("[[{\"number\":7,\"head\":{\"ref\":\"codex/issue-1-fixture\",\"repo\":{\"full_name\":\"example/fixture\"}},\"base\":{\"ref\":\"main\"},\"draft\":false,\"body\":\"Closes unrelated/project#1\",\"html_url\":\"https://github.com/example/fixture/pull/7\"}]]");
+      else if (scenario == "existing-draft") Console.WriteLine("[[{\"number\":7,\"head\":{\"ref\":\"codex/issue-1-fixture\",\"repo\":{\"full_name\":\"example/fixture\"}},\"base\":{\"ref\":\"main\"},\"draft\":true,\"body\":\"Work in progress. Refs #1\",\"html_url\":\"https://github.com/example/fixture/pull/7\"}]]");
       else Console.WriteLine("[[]]"); return 0;
     }
     if (verb == "api" && endpoint.Contains("/pulls/2/files?")) { Console.WriteLine("[[{\"filename\":\"unrelated.txt\"}]]"); return 0; }
     if (verb == "api" && endpoint.Contains("/pulls/3/files?")) { Console.WriteLine("[[{\"filename\":\"renamed.txt\",\"previous_filename\":\"owned.txt\"}]]"); return 0; }
     if (verb == "pr" && sub == "create") { Console.WriteLine("https://github.com/example/fixture/pull/7"); return 0; }
+    if (verb == "pr" && (sub == "edit" || sub == "ready")) return 0;
+    if (verb == "issue" && sub == "comment") return scenario == "issue-denied" ? Fail("Fixture: missing issue write permission",6) : 0;
     if (verb == "project" && sub == "item-edit") return scenario == "project-denied" ? Fail("Fixture: missing project write permission",5) : 0;
     return Fail("Unexpected fixture gh call: " + String.Join(" ",args),9);
   }
@@ -58,6 +63,20 @@ $testScript = Join-Path $runRoot 'pass.ps1'
 'exit 0' | Set-Content -LiteralPath $testScript
 $bodyFile = Join-Path $runRoot 'pr-body.md'
 'Implement the fixture acceptance criteria. Closes #1' | Set-Content -LiteralPath $bodyFile
+$draftBodyFile = Join-Path $runRoot 'pr-draft-body.md'
+@'
+Partial fixture implementation. Refs #1
+
+## Blockers
+
+- The fixture check script exits 7; the parser path is unfinished.
+'@ | Set-Content -LiteralPath $draftBodyFile
+$draftBodyWithoutBlockers = Join-Path $runRoot 'pr-draft-no-blockers.md'
+'Partial fixture implementation. Refs #1' | Set-Content -LiteralPath $draftBodyWithoutBlockers
+$handoffFile = Join-Path $runRoot 'handoff.md'
+'Completed the fixture change; checks pass; see the pull request.' | Set-Content -LiteralPath $handoffFile
+$failingTestScript = Join-Path $runRoot 'fail.ps1'
+'Write-Error "Deliberate fixture check failure"; exit 7' | Set-Content -LiteralPath $failingTestScript
 
 function Assert-True([bool]$Value, [string]$Message) { if (-not $Value) { throw $Message } }
 function Git([string]$Repository, [string[]]$Arguments) {
@@ -74,12 +93,15 @@ function Call([string]$Name, [hashtable]$Parameters, [string]$Scenario = 'happy'
     $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
     $info.Environment['PATH'] = $tools + [IO.Path]::PathSeparator + $env:PATH
     $info.Environment['WORKFLOW_GITHUB_FIXTURE'] = $Scenario
+    $logFile = Join-Path $runRoot "gh-calls-$script:callNumber.log"
+    $info.Environment['WORKFLOW_GITHUB_LOG'] = $logFile
     foreach ($argument in @('-NoProfile','-NonInteractive','-File',$runner,'-Script',(Join-Path $scripts "$Name.ps1"),'-ParametersFile',$parameterFile)) { $info.ArgumentList.Add($argument) }
     $process = [Diagnostics.Process]::Start($info)
     $output = $process.StandardOutput.ReadToEndAsync(); $errorOutput = $process.StandardError.ReadToEndAsync()
     try {
         if (-not $process.WaitForExit(45000)) { $process.Kill($true); throw 'Fixture process timed out.' }
-        [pscustomobject]@{ Code=$process.ExitCode; Output=$output.GetAwaiter().GetResult(); Error=$errorOutput.GetAwaiter().GetResult() }
+        $calls = if (Test-Path -LiteralPath $logFile) { Get-Content -Raw -LiteralPath $logFile } else { '' }
+        [pscustomobject]@{ Code=$process.ExitCode; Output=$output.GetAwaiter().GetResult(); Error=$errorOutput.GetAwaiter().GetResult(); Calls=$calls }
     } finally { $process.Dispose() }
 }
 function Succeeded($Result) { Assert-True ($Result.Code -eq 0) "Expected success: $($Result.Error) $($Result.Output)" }
@@ -154,7 +176,7 @@ try {
     Check 'existing PR with wrong issue body blocks push' {
         $f=New-Fixture; Succeeded (Call 'start-task' (Start-Parameters $f))
         'candidate' | Add-Content -LiteralPath (Join-Path (Task-Path $f) 'owned.txt')
-        Failed (Call 'finish-task' (Finish-Parameters $f) 'wrong-existing-body') "PR body must resolve"
+        Failed (Call 'finish-task' (Finish-Parameters $f) 'wrong-existing-body') "does not reference issue #1"
         Assert-True ((Git $f.Origin @('for-each-ref','--format=%(refname)','refs/heads/codex/issue-1-fixture')) -eq '') 'Wrong-issue PR allowed remote push.'
         Assert-True ((Registry $f)['1'].status -eq 'active') 'Wrong-issue PR changed task status.'
     }
@@ -167,6 +189,58 @@ try {
         Assert-True ($r.Output -match 'pending' -and ($r.Output + $r.Error) -match 'permission') 'Missing Project write permission did not produce actionable pending status.'
         Assert-True ((Registry $f)['1'].status -eq 'review') 'Project failure lost published task status.'
         Git $f.Origin @('rev-parse','refs/heads/codex/issue-1-fixture') | Out-Null
+    }
+    Check 'failing checks publish a draft pull request with documented blockers' {
+        $f=New-Fixture; Succeeded (Call 'start-task' (Start-Parameters $f))
+        'partial implementation' | Add-Content -LiteralPath (Join-Path (Task-Path $f) 'owned.txt')
+        $p=Finish-Parameters $f; $p.TestScript=$failingTestScript; $p.AllowTestFailure=$true; $p.BodyFile=$draftBodyFile
+        Failed (Call 'finish-task' $p) 'draft pull request with documented blockers'
+        $p.Draft=$true; $p.BodyFile=$draftBodyWithoutBlockers
+        Failed (Call 'finish-task' $p) 'Blockers'
+        $p.BodyFile=$bodyFile
+        Failed (Call 'finish-task' $p) 'must not claim to close'
+        $p.BodyFile=$draftBodyFile
+        $r=Call 'finish-task' $p; Succeeded $r
+        Assert-True ($r.Calls -match 'pr create .*--draft') 'The pull request was not created as a draft.'
+        Assert-True (($r.Output + $r.Error) -match 'Deliberate fixture check failure') 'The actual check failure was not reported.'
+        Assert-True ($r.Output -match '"testStatus": "failed"') 'A failing run was reported as a pass.'
+        $registry=Registry $f
+        Assert-True ($registry['1'].pullRequestDraft -eq $true) 'The published pull request was not recorded as a draft.'
+        Assert-True ((Get-Content -Raw -LiteralPath $registry['1'].testLog) -match 'Deliberate fixture check failure') 'Check failure evidence was not preserved.'
+        Assert-True ((Git $f.Origin @('rev-parse','refs/heads/codex/issue-1-fixture')) -ceq (Git (Task-Path $f) @('rev-parse','HEAD'))) 'Unfinished work was not pushed for preservation.'
+    }
+    Check 'an existing pull request is updated instead of duplicated' {
+        $f=New-Fixture; Succeeded (Call 'start-task' (Start-Parameters $f))
+        'implementation' | Add-Content -LiteralPath (Join-Path (Task-Path $f) 'owned.txt')
+        $p=Finish-Parameters $f; $p.CommentIssue=$true; $p.HandoffFile=$handoffFile
+        $r=Call 'finish-task' $p 'existing-draft'; Succeeded $r
+        Assert-True ($r.Calls -notmatch 'pr create') 'A duplicate pull request was created for the branch.'
+        Assert-True ($r.Calls -match 'pr edit 7 ') 'The existing pull request was not updated.'
+        Assert-True ($r.Calls -match 'pr ready 7 ') 'The completed implementation was not marked ready for review.'
+        Assert-True ($r.Calls -notmatch 'pr ready 7 .*--undo') 'A completed implementation was pushed back to draft.'
+        Assert-True ($r.Calls -match 'issue comment 1 ') 'The associated issue was not updated.'
+        Assert-True ($r.Output -match '"pullRequestAction": "updated"') 'The reused pull request was not reported as updated.'
+        Assert-True ($r.Output -match '"issueUpdate": "commented"') 'The issue update was not recorded.'
+        $registry=Registry $f
+        Assert-True ($registry['1'].pullRequest -eq 'https://github.com/example/fixture/pull/7') 'The existing pull request URL was not retained.'
+        Assert-True ($registry['1'].pullRequestDraft -eq $false) 'The ready-for-review state was not recorded.'
+    }
+    Check 'denied issue permission is reported without claiming an update' {
+        $f=New-Fixture; Succeeded (Call 'start-task' (Start-Parameters $f))
+        'implementation' | Add-Content -LiteralPath (Join-Path (Task-Path $f) 'owned.txt')
+        $p=Finish-Parameters $f; $p.CommentIssue=$true; $p.HandoffFile=$handoffFile
+        $r=Call 'finish-task' $p 'issue-denied'; Succeeded $r
+        Assert-True ($r.Output -match '"issueUpdate": "pending"') 'A denied issue comment was not reported as pending.'
+        Assert-True (($r.Output + $r.Error) -match 'issue write permission') 'The blocked issue operation was not explained.'
+        Assert-True ((Registry $f)['1'].status -eq 'review') 'A denied issue comment lost the published task status.'
+    }
+    Check 'a session without repository changes creates no pull request' {
+        $f=New-Fixture; Succeeded (Call 'start-task' (Start-Parameters $f))
+        $r=Call 'finish-task' (Finish-Parameters $f); Succeeded $r
+        Assert-True ($r.Calls -notmatch 'pr create|pr edit') 'An empty session touched a pull request.'
+        Assert-True ($r.Output -match 'skipped-no-changes') 'An empty session did not report that publication was skipped.'
+        Assert-True ((Git $f.Origin @('for-each-ref','--format=%(refname)','refs/heads/codex/issue-1-fixture')) -eq '') 'An empty session pushed a task branch.'
+        Assert-True ((Registry $f)['1'].status -eq 'active') 'An empty session claimed review status.'
     }
     $summary=[ordered]@{ Passed=@($results | Where-Object Result -EQ 'PASS').Count; Failed=@($results | Where-Object Result -EQ 'FAIL').Count; Tests=$results }
     $summary | ConvertTo-Json -Depth 8

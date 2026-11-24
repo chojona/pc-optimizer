@@ -10,7 +10,8 @@ flowchart LR
     Claim --> Tree[Isolated task branch and worktree]
     Tree --> Evidence[Tests, diff review, benchmarks, learning]
     Evidence --> Finish[finish-task skill and script]
-    Finish --> PR[Focused pull request]
+    Finish --> PR[One pull request: ready for review, or draft with blockers]
+    Finish --> Validate[end-session.ps1 protocol validation]
     PR --> Human[Human review and explicit merge approval]
     PR -. authorized update .-> Project[GitHub Project status]
 ```
@@ -25,6 +26,7 @@ flowchart LR
 | `.agents/skills/<name>/SKILL.md` | Discoverable Codex/Cursor entrypoints that load canonical procedures |
 | `.claude/skills/<name>/SKILL.md` | Discoverable Claude entrypoints that load canonical procedures |
 | `Engineering/scripts/` | Deterministic local coordination and authorized publication |
+| `Engineering/scripts/end-session.ps1` | Read-only validation of the mandatory end-of-session protocol |
 | `Engineering/scripts/install-workflow.ps1` | Explicit repository-only installation with conflict preflight; preserves nonempty existing configuration |
 | Git common directory | Machine-local ownership and concurrency metadata shared by linked worktrees |
 | GitHub issue and PR | Durable acceptance criteria, dependency links, review, and handoff |
@@ -56,11 +58,13 @@ The lock and registry are local to one clone. Another clone or machine cannot se
 
 The planning skill inspects dependencies, active branches, linked worktrees, open PRs, and shared interfaces. Automation can enforce declared path claims and exact task ownership. It cannot infer semantic conflicts in two disjoint files, judge acceptance criteria, or establish that an issue's free-form dependency text is complete.
 
-Finishing requires relevant tests and inspection of the actual diff. A failed test must stop commit/push/PR automation. Explicit changed-file selection limits accidental staging. Publication is opt-in; an existing pull request is reused rather than duplicated. A push or API failure must leave a recoverable local task and a useful error. Tests and commits are evidence for a handoff, not proof that every security or correctness risk is absent.
+Finishing requires relevant tests and inspection of the actual diff. A failed check stops an ordinary finish; it proceeds only under an explicit `-AllowTestFailure` that forces a draft pull request with documented blockers, records the real failure output as evidence, and never reports a pass. Explicit changed-file selection limits accidental staging. An existing pull request for the branch is updated, including its draft state, rather than duplicated, and a session with no commits publishes nothing. A push or API failure must leave a recoverable local task and a useful error. Tests and commits are evidence for a handoff, not proof that every security or correctness risk is absent.
+
+The end-of-session protocol is enforced in three layers. The canonical rules and the three agent adapters state the obligation so Codex, Cursor, and Claude Code each discover it without opening another file. `finish-task.ps1` performs the steps and records what it actually did, including refusals and unavailable permissions. `end-session.ps1` then reports each step read-only, deriving change, commit, and push facts from Git and reading the recorded attestations for review, tests, publication, issue updates, and handoff. Attestations are bound to the validated commit, so editing the worktree afterwards invalidates them. No agent product exposes a reliable session-end hook, so none of this is automatic enforcement: a `pending` step is an unrecorded step, which the agent must complete or explain rather than assume.
 
 GitHub Project field names and status values vary. Resolve the intended project, item, field, and single-select option before writing. The CLI supports explicit GraphQL IDs through `gh project item-edit`; a successful repository push does not establish Projects write access. Treat a missing project scope, unsupported command, or rejected field update as a reported limitation, not a reason to request broader permissions automatically. Sources: [Project item editing](https://cli.github.com/manual/gh_project_item-edit), [CLI authorization scopes](https://cli.github.com/manual/gh_auth_refresh).
 
-Merging, branch deletion, destructive cleanup, history rewriting, credential changes, and Windows/system configuration changes require separate explicit approval. None belongs in automatic task completion.
+The protocol's standing authorization covers committing, pushing the task's own feature branch, and opening or updating that branch's pull request. Merging, approving, auto-merge, force-pushing, other push targets, branch deletion, destructive cleanup, history rewriting, credential changes, and Windows/system configuration changes require separate explicit approval. None of those belongs in automatic task completion.
 
 ## Recovery and safe cleanup
 
