@@ -8,7 +8,7 @@ from collections import deque
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, QUrl
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox,
     QFileDialog, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
     QListWidget, QMainWindow, QMessageBox, QProgressBar, QPushButton, QScrollArea,
@@ -27,31 +27,84 @@ from .windows import (OFFICIAL, inventory, driver_inventory, update_search,
 ROOT=Path(__file__).resolve().parent.parent
 
 STYLE='''
-QWidget {background:#0d1320; color:#dbe5f4; font-family:"Segoe UI"; font-size:13px;}
+QWidget {background:#0d1320; color:#dbe5f4; font-family:"Segoe UI"; font-size:14px; selection-background-color:#285b70; selection-color:#ffffff;}
 QMainWindow {background:#0d1320;}
 QFrame#card {background:#161f30; border:1px solid #28354a; border-radius:12px;}
 QFrame#card QLabel, QFrame#card QCheckBox {background:transparent;}
+QWidget#sidebar {background:#101827; border-right:1px solid #28354a;}
+QWidget#sidebar QLabel {background:transparent;}
+QLabel#brand {font-size:19px; font-weight:700; color:#f4f8ff;}
 QLabel#title {font-size:27px; font-weight:700; color:#f4f8ff;}
-QLabel#muted {color:#94a5bc;}
-QLabel#metric {font-size:30px; font-weight:600; color:#6ee7c7;}
-QListWidget {background:#101827; border:none; padding:12px; font-size:14px; outline:none;}
-QListWidget::item {padding:16px 12px; border-radius:7px; margin:3px;}
+QLabel#muted {color:#a9b9ce;}
+QLabel#section {font-size:15px; font-weight:600; color:#f4f8ff;}
+QLabel#metric {font-size:28px; font-weight:600; color:#6ee7c7;}
+QLabel#metricCompact {font-size:24px; font-weight:600; color:#6ee7c7;}
+QListWidget {background:#101827; border:none; padding:0; font-size:14px; outline:none;}
+QListWidget::item {padding:13px 10px; border-radius:7px; margin:3px 0;}
+QListWidget::item:hover {background:#19283b;}
 QListWidget::item:selected {background:#203950; color:#80f0d2;}
 QPushButton {background:#22334a; border:1px solid #3a4c64; border-radius:6px; padding:9px 15px;}
 QPushButton:hover {background:#304761;}
-QPushButton:disabled {color:#64748b; background:#182233;}
+QPushButton:pressed {background:#19283b;}
+QPushButton:focus, QComboBox:focus, QLineEdit:focus, QTextEdit:focus {border:1px solid #6ee7c7;}
+QPushButton:disabled {color:#8998ac; background:#182233; border-color:#29364b;}
 QPushButton#primary {background:#237b6a; color:#fff; border-color:#329d87; font-weight:600;}
+QPushButton#primary:hover {background:#29927d;}
 QPushButton#danger {background:#713642; border-color:#9c4e5b;}
-QComboBox,QLineEdit {background:#192438; border:1px solid #35455c; border-radius:6px; padding:8px;}
-QTextEdit {background:#101827; border:1px solid #2d3b51; border-radius:6px; padding:8px; font-family:Consolas; font-size:12px;}
-QTableWidget {background:#121b2a; alternate-background-color:#172236; border:1px solid #2c3b51; gridline-color:#263349;}
-QHeaderView::section {background:#202e43; color:#aebfd4; padding:9px; border:none;}
+QComboBox,QLineEdit {background:#192438; border:1px solid #35455c; border-radius:6px; padding:8px; min-height:20px;}
+QComboBox {padding-right:28px;}
+QSpinBox {background:#192438; color:#dbe5f4; padding:6px; border:1px solid #52657e; border-radius:6px;}
+QComboBox::drop-down {subcontrol-origin:padding; subcontrol-position:top right; width:26px; border:none; border-left:1px solid #35455c;}
+QComboBox::down-arrow {image:url("@ASSETS@/chevron-down.svg"); width:12px; height:12px;}
+QComboBox QAbstractItemView {background:#192438; color:#dbe5f4; border:1px solid #465b76; padding:4px; selection-background-color:#285b70; selection-color:white; outline:none;}
+QTextEdit {background:#101827; border:1px solid #2d3b51; border-radius:6px; padding:10px; font-family:Consolas; font-size:13px;}
+QTableWidget {background:#121b2a; alternate-background-color:#172236; border:1px solid #2c3b51; border-radius:6px; gridline-color:#263349;}
+QTableWidget::item {padding:6px 8px; border:none;}
+QTableWidget::item:selected {background:#24465a; color:#ffffff;}
+QHeaderView {font-size:13px; font-weight:600;}
+QHeaderView::section {background:#202e43; color:#c5d3e5; padding:10px 8px; border:none; border-bottom:1px solid #35455c;}
+QTableCornerButton::section {background:#202e43; border:none;}
+QTabWidget::pane {background:#101827; border:1px solid #2c3b51; border-radius:8px; top:-1px;}
+QTabBar {background:transparent; font-size:13px; font-weight:600;}
+QTabBar::tab {background:#162235; color:#b8c7db; border:1px solid #2c3b51; border-bottom:3px solid #2c3b51; border-top-left-radius:6px; border-top-right-radius:6px; padding:11px 12px; margin-right:4px;}
+QTabBar::tab:hover {background:#22364d; color:#f4f8ff;}
+QTabBar::tab:selected {background:#20394a; color:#99f6df; border-bottom:3px solid #6ee7c7;}
+QTabBar::tab:focus {border-top-color:#6ee7c7;}
+QTabBar QToolButton {background:#22334a; color:#f4f8ff; border:1px solid #465b76; border-radius:4px;}
 QProgressBar {border:1px solid #34465f; border-radius:5px; text-align:center; background:#172235; min-height:15px;}
 QProgressBar::chunk {background:#309a86; border-radius:4px;}
 QScrollArea {border:none;}
+QScrollBar:vertical {background:#101827; width:12px; margin:0;}
+QScrollBar:horizontal {background:#101827; height:12px; margin:0;}
+QScrollBar::handle:vertical {background:#40536d; border-radius:5px; min-height:32px; margin:2px;}
+QScrollBar::handle:horizontal {background:#40536d; border-radius:5px; min-width:32px; margin:2px;}
+QScrollBar::handle:hover {background:#607895;}
+QScrollBar::add-line, QScrollBar::sub-line {width:0; height:0;}
+QScrollBar::add-page, QScrollBar::sub-page {background:transparent;}
 QCheckBox {spacing:8px; padding:4px;}
+QCheckBox::indicator {width:16px; height:16px; border:1px solid #71849e; border-radius:4px; background:#101827;}
+QCheckBox::indicator:checked {image:url("@ASSETS@/check.svg"); background:#237b6a; border-color:#80f0d2;}
+QCheckBox::indicator:disabled {border-color:#35455c;}
 QToolTip {background:#24334b; color:white; border:1px solid #50627d;}
-'''
+'''.replace('@ASSETS@',(ROOT/'optimizer'/'assets').as_posix())
+
+
+def configure_theme(app):
+    # Fusion respects the dark palette for native arrows, checks and dialogs.
+    app.setStyle('Fusion')
+    palette=QPalette()
+    for role,color in {
+        'Window':'#0d1320', 'WindowText':'#dbe5f4', 'Base':'#101827',
+        'AlternateBase':'#172236', 'Text':'#dbe5f4', 'Button':'#22334a',
+        'ButtonText':'#dbe5f4', 'Highlight':'#285b70', 'HighlightedText':'#ffffff',
+        'ToolTipBase':'#24334b', 'ToolTipText':'#ffffff', 'PlaceholderText':'#a9b9ce',
+        'Light':'#607895', 'Midlight':'#40536d', 'Mid':'#35455c',
+        'Dark':'#101827', 'Shadow':'#080e18', 'Link':'#80f0d2',
+    }.items():
+        palette.setColor(getattr(QPalette.ColorRole,role),QColor(color))
+    for role in (QPalette.ColorRole.Text,QPalette.ColorRole.ButtonText,QPalette.ColorRole.WindowText):
+        palette.setColor(QPalette.ColorGroup.Disabled,role,QColor('#8998ac'))
+    app.setPalette(palette)
 
 
 class Signals(QObject):
@@ -93,10 +146,13 @@ def button(text, fn, primary=False):
 def table(headers):
     w=QTableWidget(0,len(headers))
     w.setHorizontalHeaderLabels(headers)
+    for i,header in enumerate(headers): w.horizontalHeaderItem(i).setToolTip(header)
     w.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     w.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
     w.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
     w.setAlternatingRowColors(True)
+    w.setShowGrid(False)
+    w.verticalHeader().setDefaultSectionSize(40)
     w.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
     w.horizontalHeader().setStretchLastSection(True)
     w.verticalHeader().hide()
@@ -196,9 +252,12 @@ class MainWindow(QMainWindow):
         outer=QHBoxLayout(shell)
         outer.setContentsMargins(0,0,0,0)
         left=QWidget()
-        left.setFixedWidth(220)
+        left.setObjectName('sidebar')
+        left.setFixedWidth(236)
         side=QVBoxLayout(left)
-        side.addWidget(label('◈  PC OPTIMIZER','title'))
+        side.setContentsMargins(16,24,16,20)
+        side.setSpacing(12)
+        side.addWidget(label('PC OPTIMIZER','brand'))
         side.addWidget(label('LOCAL WORKSTATION','muted'))
         self.nav=QListWidget()
         self.nav.addItems(['Overview','Optimization Center','Driver Manager','Benchmark Center','Before & After','Startup & Processes','Stability Center','Activity & Settings'])
@@ -213,6 +272,9 @@ class MainWindow(QMainWindow):
         right.addWidget(self.stack,1)
         self.status=label('Starting live monitoring…','muted')
         self.progress=QProgressBar()
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(6)
+        self.progress.setStyleSheet('QProgressBar {min-height:4px; border:0; border-radius:3px;}')
         self.progress.setRange(0,1)
         self.progress.setValue(0)
         right.addWidget(self.progress)
@@ -235,6 +297,9 @@ class MainWindow(QMainWindow):
         self.nav.addItem('Wi-Fi & Network')
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
+        for widget in self.findChildren(QTableWidget):
+            widget.ensurePolished()
+            widget.resizeColumnsToContents()
         self.timer=QTimer(self)
         self.timer.timeout.connect(self.poll)
         self.timer.start(1800)
@@ -292,11 +357,16 @@ class MainWindow(QMainWindow):
         for i,(key,title) in enumerate([('cpu','CPU utilization'),('gpu','GPU utilization'),('ram','Memory utilization'),('network','Network latency')]):
             card=QFrame(); card.setObjectName('card')
             box=QVBoxLayout(card)
+            box.setContentsMargins(16,16,16,16)
+            box.setSpacing(10)
             box.addWidget(label(title,'muted'))
             value=label('Waiting…','metric'); detail=label('Reading current system…','muted')
-            box.addWidget(value); box.addWidget(detail)
+            value.setFixedHeight(38)
+            detail.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            box.addWidget(value); box.addWidget(detail,1)
             self.metrics[key]=(value,detail)
             grid.addWidget(card,0,i)
+            grid.setColumnStretch(i,1)
         l.addLayout(grid)
         charts=QHBoxLayout()
         self.cpu_chart=Chart('CPU utilization · %')
