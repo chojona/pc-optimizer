@@ -1,6 +1,6 @@
 # CI and Windows source releases
 
-**Windows CI** runs on pull requests, pushes to `main`, and manual Actions runs. It installs the pinned dependencies on Python 3.12, 3.13 and 3.14, checks dependency compatibility, compiles the code and runs the offline test suite. GUI tests use Qt's offscreen platform; system changes and bulk network traffic are mocked. Each job uploads a JUnit report for seven days.
+**Windows CI** runs on pull requests, pushes to `main`, and manual Actions runs. It creates a fresh virtual environment for each of Python 3.12, 3.13 and 3.14, installs the pinned dependencies, checks dependency compatibility, compiles the code and runs the offline test suite. GUI tests use Qt's offscreen platform; system changes and bulk network traffic are mocked. Each job uploads a JUnit report for seven days.
 
 After all three Python jobs pass, CI builds and verifies a Windows source ZIP and its SHA-256 checksum. Download the `windows-source` artifact from the Actions run; it is retained for fourteen days. The archive includes committed runtime code, UI assets, requirements, launcher, setup script and documentation. The user's database, logs, virtual environment and tests are excluded. Verification checks the checksum, archive paths, required runtime files and Python syntax.
 
