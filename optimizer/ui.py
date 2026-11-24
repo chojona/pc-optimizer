@@ -129,37 +129,42 @@ class Chart(QWidget):
         self.setMouseTracking(True)
 
     def add(self,value):
-        if value is not None:
-            self.values.append(float(value))
-            self.update()
+        self.values.append(float(value) if value is not None else None)
+        self.update()
 
     def mouseMoveEvent(self,event):
         if self.values:
             i=min(len(self.values)-1,max(0,round((event.position().x()-12)/max(1,self.width()-24)*(len(self.values)-1))))
-            self.setToolTip(f'{self.title} · sample {i+1}: {self.values[i]:,.2f}')
+            self.setToolTip(f'{self.title} · sample {i+1}: {fmt(self.values[i])}')
 
     def paintEvent(self,event):
         p=QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.fillRect(self.rect(),QColor('#161f30'))
         p.setPen(QColor('#a9b9ce'))
-        p.drawText(14,23,self.title)
+        p.drawText(14,23,p.fontMetrics().elidedText(self.title,Qt.TextElideMode.ElideRight,max(40,self.width()-28)))
         top,bottom=38,self.height()-20
         p.setPen(QPen(QColor('#29364b'),1))
         for n in range(4):
             y=top+(bottom-top)*n/3
             p.drawLine(12,int(y),self.width()-12,int(y))
-        if not self.values: return
-        maximum=self.maximum or max(max(self.values)*1.1,1)
+        good=[v for v in self.values if v is not None]
+        if not good: return
+        maximum=self.maximum or max(max(good)*1.1,1)
         path=QPainterPath()
+        connected=False
         for i,value in enumerate(self.values):
+            if value is None:
+                connected=False
+                continue
             x=12+(self.width()-24)*i/max(1,len(self.values)-1)
             y=bottom-min(1,max(0,value/maximum))*(bottom-top)
-            if i==0: path.moveTo(x,y)
+            if not connected: path.moveTo(x,y)
             else: path.lineTo(x,y)
+            connected=True
         p.setPen(QPen(self.color,2))
         p.drawPath(path)
-        p.drawText(self.width()-130,23,fmt(self.values[-1]))
+        p.drawText(self.width()-130,self.height()-4,fmt(self.values[-1]))
 
 
 class MainWindow(QMainWindow):
@@ -175,6 +180,7 @@ class MainWindow(QMainWindow):
         self.pool=QThreadPool(self)
         self.pool.setMaxThreadCount(6)
         self.jobs=set()
+        self.closing=False
         self.hardware=self.store.get('hardware',{})
         self.telemetry=Telemetry()
         self.telemetry_busy=False
@@ -220,6 +226,13 @@ class MainWindow(QMainWindow):
         self.make_processes()
         self.make_stability()
         self.make_activity()
+        from .network_ui import NetworkCenter
+        self.network_center=NetworkCenter(self)
+        self.network_scroll=QScrollArea()
+        self.network_scroll.setWidgetResizable(True)
+        self.network_scroll.setWidget(self.network_center)
+        self.stack.addWidget(self.network_scroll)
+        self.nav.addItem('Wi-Fi & Network')
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.nav.setCurrentRow(0)
         self.timer=QTimer(self)
@@ -255,12 +268,15 @@ class MainWindow(QMainWindow):
         if not self.jobs:
             self.progress.setRange(0,1)
             self.progress.setValue(1)
+            if self.closing:
+                self.close()
 
     def error(self,text):
         self.status.setText('Operation failed · '+text.strip().splitlines()[-1])
         self.store.action('application','failed',{'error':text})
         if hasattr(self,'activity'): self.refresh_activity()
-        QMessageBox.warning(self,'Operation could not complete',text[-5000:])
+        if not self.closing:
+            QMessageBox.warning(self,'Operation could not complete',text[-5000:])
 
     def confirm(self,title,text):
         return QMessageBox.question(self,title,text,QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes
@@ -297,7 +313,7 @@ class MainWindow(QMainWindow):
         l.addWidget(button('Rescan hardware & current storage',self.scan_hardware))
 
     def poll(self):
-        if self.telemetry_busy: return
+        if self.closing or self.telemetry_busy: return
         self.telemetry_busy=True
         job=self.launch(lambda _:self.telemetry.sample(),self.show_telemetry,False)
         job.signals.done.connect(lambda:setattr(self,'telemetry_busy',False))
@@ -319,6 +335,7 @@ class MainWindow(QMainWindow):
         fill(self.volumes,[(v['path'],f"{v['total']/2**30:.1f}",f"{v['free']/2**30:.1f}",f"{v['percent']}%",'Device health in hardware inventory below') for v in s['volumes']])
 
     def scan_hardware(self):
+        if self.closing: return
         self.status.setText('Reading CIM hardware, pagefile policy and storage health…')
         self.launch(lambda _:inventory(),self.hardware_ready)
 
@@ -581,7 +598,7 @@ class MainWindow(QMainWindow):
 
     def refresh_history(self):
         if not hasattr(self,'before'): return
-        self.runs=self.store.runs()
+        self.runs=[r for r in self.store.runs() if not r['kind'].startswith('network ')]
         old_before=self.before.currentData(); old_after=self.after.currentData()
         self.before.clear(); self.after.clear()
         for r in self.runs:
@@ -757,7 +774,7 @@ class MainWindow(QMainWindow):
         l.addLayout(row)
         self.activity=QTextEdit(); self.activity.setReadOnly(True)
         l.addWidget(self.activity,1)
-        l.addWidget(label(f'PC Optimizer {__version__} · Database: {self.store.path}\nNo action is applied at launch. No telemetry is uploaded. Live ICMP probes go to 1.1.1.1; Windows Update checks are initiated manually.','muted'))
+        l.addWidget(label(f'PC Optimizer {__version__} · Database: {self.store.path}\nNo action is applied at launch. Live ICMP probes go to the IPv4 gateway and 1.1.1.1. Network benchmarks send bounded synthetic traffic only after consent. Windows Update checks are initiated manually.','muted'))
         self.refresh_activity()
 
     def refresh_activity(self):
@@ -779,9 +796,13 @@ class MainWindow(QMainWindow):
         if self.action_busy or self.benchmark:
             QMessageBox.information(self,'Operation running','Finish or cancel the active operation before closing.'); event.ignore();return
         self.timer.stop()
-        # Keep QObject signal receivers alive while short read-only workers finish.
+        self.network_center.stop()
+        self.closing=True
+        # Keep signal receivers alive until every bounded read-only worker completes.
+        # Accepting close after an arbitrary 5 s wait could destroy a running job's signals.
         if self.jobs:
             self.hide()
-            self.pool.waitForDone(5000)
+            event.ignore()
+            return
         self.store.set('window_size',[self.width(),self.height()])
         event.accept()
